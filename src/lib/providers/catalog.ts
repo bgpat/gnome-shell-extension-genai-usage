@@ -1,3 +1,6 @@
+import { googleFaviconUrl } from '../googleFaviconUrl.js';
+import { isHttpsUrl } from '../icons.js';
+
 export interface QuotaMode {
     id: string;
     label: string;
@@ -6,8 +9,6 @@ export interface QuotaMode {
 export interface ProviderCatalogEntry {
     id: string;
     displayName: string;
-    themeIconName: string;
-    fallbackIcon: string;
     defaultIconUrl: string;
     executableNames: string[];
     staticQuotaModes?: QuotaMode[];
@@ -19,9 +20,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'chatgpt',
         displayName: 'ChatGPT',
-        themeIconName: 'chatgpt',
-        fallbackIcon: 'chatgpt-fallback-symbolic.svg',
-        defaultIconUrl: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg',
+        defaultIconUrl: googleFaviconUrl('https://chatgpt.com'),
         executableNames: ['codex'],
         staticQuotaModes: [
             { id: 'five-hour', label: 'Five-hour quota' },
@@ -34,9 +33,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'cursor',
         displayName: 'Cursor',
-        themeIconName: 'co.anysphere.cursor',
-        fallbackIcon: 'cursor-fallback-symbolic.svg',
-        defaultIconUrl: 'https://cursor.com/favicon.ico',
+        defaultIconUrl: googleFaviconUrl('https://cursor.com'),
         executableNames: ['cursor-agent'],
         dynamicQuotas: true,
         supportsUnofficial: true,
@@ -47,4 +44,17 @@ export const KNOWN_PROVIDER_IDS = PROVIDER_CATALOG.map(entry => entry.id);
 
 export function catalogEntry(id: string): ProviderCatalogEntry | undefined {
     return PROVIDER_CATALOG.find(entry => entry.id === id);
+}
+
+/** Built-in default URL; override replaces it. */
+export function providerIconUrlCandidates(entry: ProviderCatalogEntry, override: string): string[] {
+    const trimmed = override.trim();
+    if (trimmed) {
+        if (!isHttpsUrl(trimmed))
+            return [];
+        return [trimmed];
+    }
+    if (isHttpsUrl(entry.defaultIconUrl))
+        return [entry.defaultIconUrl];
+    return [];
 }
