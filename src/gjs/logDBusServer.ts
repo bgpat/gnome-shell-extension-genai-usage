@@ -1,6 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { runShellSafe } from './shellSafe.js';
 import { logText } from './logStore.js';
 import { attachUsageService, detachUsageService } from './usageDBusServer.js';
 
@@ -34,7 +35,7 @@ const dbusImpl = {
         return logText();
     },
     AppendLog(level: string, kind: string, message: string): void {
-        appendHandler?.(level, kind, message);
+        runShellSafe('D-Bus AppendLog', () => appendHandler?.(level, kind, message), 'user');
     },
 };
 
