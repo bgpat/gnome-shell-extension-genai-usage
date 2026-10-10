@@ -3,7 +3,7 @@
 ## 変更の提出
 
 - コード・設定・ワークフローなどリポジトリへの変更は、**main へ直接 push せずブランチを切って PR を作成**する。
-- PR には `gh pr create` を使い、本文は HEREDOC / `--body-file` で渡す（改行の `\n` 埋め込みを避ける）。
+- PR には `gh pr create` を使い、**タイトル・本文（Summary / Test plan など）は英語**で書く。本文は HEREDOC / `--body-file` で渡す（改行の `\n` 埋め込みを避ける）。
 - ユーザーが明示的に main への直接 commit / push を依頼した場合のみ例外。
 
 ## GitHub Actions
