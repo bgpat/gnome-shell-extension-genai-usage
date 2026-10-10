@@ -1,18 +1,52 @@
+#panel .genai-usage-panel-button {
+    -natural-hpadding: 10px;
+    -minimum-hpadding: 6px;
+    -st-vpadding: 3px;
+}
+
+#panel .genai-usage-panel {
+    color: #eeeeee;
+    spacing: 16px;
+    padding: 2px 4px;
+}
+
+#panel .genai-usage-provider-icon,
+.genai-usage-provider-icon {
+    -st-icon-style: regular;
+    icon-size: 14px;
+    padding: 0;
+    margin: 0;
+    border-radius: 3px;
+}
+
 .genai-usage-panel {
     spacing: 10px;
 }
 
+#panel .genai-usage-item {
+    spacing: 8px;
+}
+
 .genai-usage-item {
-    spacing: 4px;
+    spacing: 8px;
 }
 
 .genai-usage-percent {
     font-weight: bold;
 }
 
+#panel .genai-usage-bar-label {
+    padding: 0;
+    margin: 0;
+}
+
 .genai-usage-section {
     spacing: 6px;
     margin: 8px 12px;
+}
+
+.genai-usage-section-header {
+    spacing: 8px;
 }
 
 .genai-usage-title {
@@ -40,3 +74,37 @@
     background-color: #1c71d8;
     border-radius: 3px;
 }
+
+.genai-topbar-preview {
+    background-color: #303030;
+    border-radius: 10px;
+    padding: 14px 18px;
+    min-height: 52px;
+}
+
+.genai-topbar-pill {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 8px 16px 8px 12px;
+}
+
+.genai-topbar-pill-muted {
+    background-color: alpha(currentColor, 0.08);
+}
+
+.genai-topbar-pill-label {
+    color: white;
+}
+
+.genai-topbar-pill-handle {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.genai-topbar-pill-dragging {
+    background-color: rgba(255, 255, 255, 0.28);
+}
+
+.genai-log-scrolled {
+    min-width: 100%;
+}
+
