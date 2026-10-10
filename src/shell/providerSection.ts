@@ -1,9 +1,12 @@
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { formatLastRefresh, formatMoney, formatResetCountdown } from '../lib/format.js';
 import type { UsageSnapshot } from '../lib/model.js';
+import type { ExtensionSettings } from '../gjs/settings.js';
+import { attachProviderStIcon } from './providerIconView.js';
 
 export interface ResetLabel {
     label: St.Label;
@@ -14,11 +17,14 @@ export interface ResetLabel {
 
 export function fillProviderSection(
     section: PopupMenu.PopupMenuSection,
+    providerId: string,
     snapshot: UsageSnapshot | undefined,
-    error: string | undefined,
     showPlan: boolean,
     showBilling: boolean,
     nowMs: number,
+    settings: ExtensionSettings,
+    cancellable: Gio.Cancellable,
+    isCurrent: () => boolean,
 ): ResetLabel[] {
     const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, can_focus: false });
     const box = new St.BoxLayout({ vertical: true, style_class: 'genai-usage-section' });
@@ -27,30 +33,18 @@ export function fillProviderSection(
 
     const resets: ResetLabel[] = [];
     const name = snapshot?.displayName ?? 'Provider';
-    const title = new St.Label({ text: name, style_class: 'genai-usage-title' });
-    box.add_child(title);
+    const header = new St.BoxLayout({ style_class: 'genai-usage-section-header' });
+    attachProviderStIcon(header, 0, providerId, settings, cancellable, isCurrent, undefined, 20);
+    header.add_child(new St.Label({ text: name, style_class: 'genai-usage-title' }));
+    box.add_child(header);
 
     if (!snapshot) {
         box.add_child(new St.Label({ text: 'No data yet', style_class: 'genai-usage-muted' }));
         return resets;
     }
 
-    if (snapshot.source === 'unofficial') {
-        box.add_child(new St.Label({
-            text: 'Unofficial source',
-            style_class: 'genai-usage-notice',
-        }));
-    }
-
     if (showPlan && snapshot.plan) {
         box.add_child(new St.Label({ text: `Plan: ${snapshot.plan}`, style_class: 'genai-usage-muted' }));
-    }
-
-    if (snapshot.availability.state === 'unavailable') {
-        box.add_child(new St.Label({
-            text: snapshot.availability.reason,
-            style_class: 'genai-usage-muted',
-        }));
     }
 
     if (snapshot.quotas.length === 0 && snapshot.availability.state === 'available') {
@@ -103,13 +97,8 @@ export function fillProviderSection(
     }
 
     for (const notice of snapshot.notices ?? []) {
-        if (error && notice === error)
-            continue;
         box.add_child(new St.Label({ text: notice, style_class: 'genai-usage-notice' }));
     }
-
-    if (error)
-        box.add_child(new St.Label({ text: error, style_class: 'genai-usage-notice' }));
 
     const refreshed = new St.Label({ style_class: 'genai-usage-muted' });
     refreshed.text = refreshText(snapshot.refreshedAt, nowMs);
