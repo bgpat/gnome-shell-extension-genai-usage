@@ -6,8 +6,9 @@ import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import { barEntries, barItemLabel } from '../lib/presentation.js';
 import { visibleIds } from '../lib/layout.js';
+import { deferMenuRebuildWhileOpen, menuEnabledProviderIds } from '../lib/menuPresentation.js';
+import { barEntries, barItemLabel } from '../lib/presentation.js';
 import { appendLog } from '../gjs/log.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { Countdown } from './countdown.js';
@@ -35,6 +36,8 @@ export class UsageIndicator {
     private resetLabels: ResetLabel[] = [];
     private icons = new Map<string, St.Icon>();
     private iconGeneration = 0;
+    private menuIsOpen = false;
+    private pendingMenuRebuild = false;
 
     constructor(
         private readonly host: Host,
@@ -52,7 +55,9 @@ export class UsageIndicator {
         this.button.add_child(this.box);
         this.countdown = new Countdown(() => tickResetLabels(this.resetLabels, Date.now()));
         this.menuHandler = this.menu.connect('open-state-changed', (...args: unknown[]) => {
-            if (args[1]) {
+            const isOpen = Boolean(args[1]);
+            this.menuIsOpen = isOpen;
+            if (isOpen) {
                 appendLog('debug', 'Top bar menu opened.', 'user');
                 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
                     relayoutOpenMenuQuotaBars();
@@ -66,6 +71,10 @@ export class UsageIndicator {
             } else {
                 appendLog('debug', 'Top bar menu closed.', 'user');
                 this.countdown.stop();
+                if (this.pendingMenuRebuild) {
+                    this.pendingMenuRebuild = false;
+                    this.rebuildMenu(this.settings.enabledSet(), this.iconGeneration);
+                }
             }
         });
     }
@@ -127,7 +136,12 @@ export class UsageIndicator {
             `Top bar updated (${entries.length} visible ${entries.length === 1 ? 'entry' : 'entries'}).`,
             'background',
         );
-        this.rebuildMenu(enabled, generation);
+        if (deferMenuRebuildWhileOpen(this.menuIsOpen)) {
+            this.pendingMenuRebuild = true;
+        } else {
+            this.pendingMenuRebuild = false;
+            this.rebuildMenu(enabled, generation);
+        }
     }
 
     destroy(): void {
@@ -145,31 +159,37 @@ export class UsageIndicator {
         this.menu.removeAll();
         this.resetLabels = [];
         const now = Date.now();
-        let first = true;
-        for (const id of this.settings.layout().order) {
-            if (!enabled.has(id))
-                continue;
-            if (!first)
+        let hasSections = false;
+        try {
+            const menuIds = menuEnabledProviderIds(this.settings.layout().order, enabled);
+            let first = true;
+            for (const id of menuIds) {
+                if (!first)
+                    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                first = false;
+                const section = new PopupMenu.PopupMenuSection();
+                const view = this.scheduler.view(id);
+                const labels = fillProviderSection(
+                    section,
+                    id,
+                    view.snapshot,
+                    this.settings.showPlan(id),
+                    this.settings.showBilling(id),
+                    now,
+                    this.settings,
+                    this.cancellable,
+                    () => generation === this.iconGeneration,
+                );
+                this.resetLabels.push(...labels);
+                this.menu.addMenuItem(section);
+            }
+            hasSections = !first;
+            if (hasSections)
                 this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            first = false;
-            const section = new PopupMenu.PopupMenuSection();
-            const view = this.scheduler.view(id);
-            const labels = fillProviderSection(
-                section,
-                id,
-                view.snapshot,
-                this.settings.showPlan(id),
-                this.settings.showBilling(id),
-                now,
-                this.settings,
-                this.cancellable,
-                () => generation === this.iconGeneration,
-            );
-            this.resetLabels.push(...labels);
-            this.menu.addMenuItem(section);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            appendLog('error', `Menu rebuild failed: ${message}`, 'background');
         }
-        if (!first)
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.addAction('Refresh', () => {
             appendLog('info', 'Top bar menu: Refresh chosen.', 'user');
             this.scheduler.refreshAllAsync(true);
