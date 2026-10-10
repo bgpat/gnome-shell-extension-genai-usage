@@ -1,5 +1,12 @@
 # 作業ルール
 
+## 作業場所（プロジェクト直下）
+
+- **リポジトリ直下**（プライマリ worktree、`gnome-shell-extension-genai-usage/`）は **`main` 固定**。ここで feature ブランチに切り替えたり、ソース・設定・ワークフローを編集したり **コミットしたりしない**。
+- 実装・検証・コミットは **`git worktree`（例: `.worktrees/fix-quota-used-in-menu/`）** 上のブランチだけで行う。`bun run dev` / `dev:prefs` / `install:local` も **作業中の worktree の cwd** から実行する（直下から実行しない）。
+- エージェントは `StrReplace` / `Write` のパスが **`/.worktrees/` 以下か** を編集前に確認する。直下の `src/` 等へ書かない。例外はユーザーが明示したときのみ。
+- 直下を `main` からズラしたブランチにしてしまった場合は、作業を worktree へ移したうえで **`git checkout main`** して戻す（直下に未コミット変更を残さない）。
+
 ## 変更の提出
 
 - コード・設定・ワークフローなどリポジトリへの変更は、**main へ直接 push せずブランチを切って PR を作成**する。
@@ -47,6 +54,7 @@
 | 並び・表示/非表示 | GSettings + `lib/layout.ts` | 順序変更だけでは API 再取得は不要（下記「設定 watch」） |
 | ログ | Shell メモリ → D-Bus Log | prefs の `appendLog` は Shell へ転送 |
 | アイコン | ディスクキャッシュ（`iconCache`、プロセス共通パス） | Shell / prefs は別 UI キットのため**それぞれ** `refreshProviderGicon` する。キャッシュファイルは共有 |
+| 設定タブアイコン | `src/prefs/pageIcons.ts`（テーマの `icon_name` のみ） | **カスタム同梱アイコン禁止**（`icons/` の pack、`IconTheme.add_search_path` など） |
 
 ### 既知の粗さ（改善候補・意図的でない二重取得）
 

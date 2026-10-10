@@ -1,5 +1,6 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -11,7 +12,13 @@ import { appendLog } from '../gjs/log.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { Countdown } from './countdown.js';
 import { attachProviderStIcon } from './providerIconView.js';
-import { fillProviderSection, tickResetLabels, type ResetLabel } from './providerSection.js';
+import {
+    clearQuotaBarRelayouts,
+    fillProviderSection,
+    relayoutOpenMenuQuotaBars,
+    tickResetLabels,
+    type ResetLabel,
+} from './providerSection.js';
 import type { RefreshScheduler } from './refreshScheduler.js';
 
 interface Host {
@@ -47,6 +54,14 @@ export class UsageIndicator {
         this.menuHandler = this.menu.connect('open-state-changed', (...args: unknown[]) => {
             if (args[1]) {
                 appendLog('debug', 'Top bar menu opened.', 'user');
+                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                    relayoutOpenMenuQuotaBars();
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        relayoutOpenMenuQuotaBars();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                    return GLib.SOURCE_REMOVE;
+                });
                 this.countdown.start();
             } else {
                 appendLog('debug', 'Top bar menu closed.', 'user');
@@ -56,6 +71,15 @@ export class UsageIndicator {
     }
 
     update(): void {
+        try {
+            this.updateInner();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            appendLog('error', `Top bar update failed: ${message}`, 'background');
+        }
+    }
+
+    private updateInner(): void {
         const layout = this.settings.layout();
         const enabled = this.settings.enabledSet();
         const ids = visibleIds(layout, enabled);
@@ -117,6 +141,7 @@ export class UsageIndicator {
     }
 
     private rebuildMenu(enabled: Set<string>, generation: number): void {
+        clearQuotaBarRelayouts();
         this.menu.removeAll();
         this.resetLabels = [];
         const now = Date.now();
@@ -147,7 +172,7 @@ export class UsageIndicator {
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.addAction('Refresh', () => {
             appendLog('info', 'Top bar menu: Refresh chosen.', 'user');
-            void this.scheduler.refreshAll(true);
+            this.scheduler.refreshAllAsync(true);
         });
         this.addAction('Preferences', () => {
             appendLog('info', 'Top bar menu: Preferences chosen.', 'user');

@@ -1,15 +1,17 @@
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
-import Pango from 'gi://Pango';
 
 import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
 import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
 import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
 import { appendLog } from '../gjs/log.js';
 import { refreshProvider } from '../gjs/providers/registry.js';
+import { shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
+import { PREFS_SERVICES_ICON, PREFS_SERVICES_NAME } from './pageIcons.js';
+import { newPreferencesTab } from './preferencesTab.js';
 
 interface ProviderColumn {
     entry: ProviderCatalogEntry;
@@ -17,11 +19,7 @@ interface ProviderColumn {
     cell: {
         enabled: Gtk.Switch;
         executable: Gtk.Entry;
-        authStatus: Gtk.Label;
-        authCheck: Gtk.Button;
         quota: Gtk.DropDown;
-        quotaLoadStatus: Gtk.Label;
-        quotaLoadButton: Gtk.Button | null;
         showPlan: Gtk.Switch;
         showBilling: Gtk.Switch;
         iconUrl: Gtk.Entry;
@@ -30,10 +28,7 @@ interface ProviderColumn {
 }
 
 export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = new Adw.PreferencesPage({
-        title: 'Services',
-        icon_name: 'applications-system-symbolic',
-    });
+    const page = newPreferencesTab('Services', PREFS_SERVICES_NAME, PREFS_SERVICES_ICON);
     const cancellable = new Gio.Cancellable();
     const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
     const group = new Adw.PreferencesGroup({
@@ -73,34 +68,6 @@ function buildProviderColumn(
     });
     provider.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    const authStatus = new Gtk.Label({
-        label: 'Not checked',
-        xalign: 0,
-        ellipsize: Pango.EllipsizeMode.END,
-        max_width_chars: 24,
-    });
-    authStatus.add_css_class('dim-label');
-    const authCheck = new Gtk.Button({ label: 'Check' });
-    authCheck.connect('clicked', () => {
-        appendLog('info', `Services: Check authentication for ${entry.id}.`, 'user');
-        authStatus.label = 'Checking…';
-        void refreshProvider(entry.id, settings, cancellable).then(snapshot => {
-            if (cancellable.is_cancelled())
-                return;
-            authStatus.label = snapshot.availability.state === 'unavailable'
-                ? snapshot.availability.reason
-                : snapshot.plan ? `Available · ${snapshot.plan}` : 'Available';
-            if (entry.dynamicQuotas) {
-                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
-                if (fromSnapshot.length > 0)
-                    applyModes(fromSnapshot);
-            }
-        }).catch(() => {
-            if (!cancellable.is_cancelled())
-                authStatus.label = 'Check failed';
-        });
-    });
-
     let quotaModel = new Gtk.StringList();
     const quota = Gtk.DropDown.new(quotaModel, null);
     quota.hexpand = true;
@@ -135,45 +102,35 @@ function buildProviderColumn(
             settings.setTopBarQuota(entry.id, mode.id);
     });
 
-    const quotaLoadStatus = new Gtk.Label({
-        label: entry.dynamicQuotas
-            ? 'Shown after a successful unofficial refresh'
-            : 'Built-in choices',
-        xalign: 0,
-        ellipsize: Pango.EllipsizeMode.END,
-        max_width_chars: 24,
-    });
-    quotaLoadStatus.add_css_class('dim-label');
-    let quotaLoadButton: Gtk.Button | null = null;
-    let loadCursorQuotas: (() => void) | undefined;
-
-    if (entry.dynamicQuotas) {
-        quotaLoadButton = new Gtk.Button({ label: 'Load' });
-        loadCursorQuotas = () => {
-            appendLog('info', 'Services: Load Cursor quota choices.', 'user');
-            quotaLoadStatus.label = 'Loading…';
-            void discoverCursorQuotas({
-                allowUnofficial: settings.allowUnofficial(entry.id),
-                cancellable,
-            }).then(found => {
-                if (cancellable.is_cancelled())
-                    return;
-                if (!settings.allowUnofficial(entry.id)) {
-                    applyModes([]);
-                    quotaLoadStatus.label = 'Turn on the unofficial source to load quotas';
+    const syncDynamicQuotaModes = () => {
+        if (!entry.dynamicQuotas)
+            return;
+        if (!settings.allowUnofficial(entry.id)) {
+            applyModes([]);
+            return;
+        }
+        if (shellSnapshotsAvailable()) {
+            const snapshot = snapshotsFromShell().get(entry.id);
+            if (snapshot) {
+                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
+                if (fromSnapshot.length > 0) {
+                    applyModes(fromSnapshot);
                     return;
                 }
-                applyModes(found);
-                quotaLoadStatus.label = found.length > 0
-                    ? 'Loaded from the latest Cursor response'
-                    : 'Cursor did not report any quota percentages';
-            }).catch(() => {
-                if (!cancellable.is_cancelled())
-                    quotaLoadStatus.label = 'Could not load Cursor quotas';
-            });
-        };
-        quotaLoadButton.connect('clicked', () => loadCursorQuotas!());
-    }
+            }
+        }
+        void discoverCursorQuotas({
+            allowUnofficial: true,
+            cancellable,
+        }).then(found => {
+            if (cancellable.is_cancelled())
+                return;
+            applyModes(found);
+        }).catch(() => {
+            if (!cancellable.is_cancelled())
+                applyModes([]);
+        });
+    };
 
     const showPlan = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
     provider.bind('show-plan', showPlan, 'active', Gio.SettingsBindFlags.DEFAULT);
@@ -195,10 +152,11 @@ function buildProviderColumn(
         unofficial = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
         provider.bind('allow-unofficial-sources', unofficial, 'active', Gio.SettingsBindFlags.DEFAULT);
         unofficial.connect('notify::active', () => {
+            if (unofficial!.active)
+                appendLog('info', `Services: unofficial usage source enabled for ${entry.id}.`, 'user');
+            syncDynamicQuotaModes();
             if (!unofficial!.active)
                 return;
-            appendLog('info', `Services: unofficial usage source enabled for ${entry.id}.`, 'user');
-            loadCursorQuotas?.();
             void refreshProvider(entry.id, settings, cancellable).then(snapshot => {
                 if (cancellable.is_cancelled())
                     return;
@@ -209,16 +167,15 @@ function buildProviderColumn(
         });
     }
 
-    if (entry.dynamicQuotas && settings.allowUnofficial(entry.id))
-        loadCursorQuotas?.();
+    if (entry.dynamicQuotas)
+        syncDynamicQuotaModes();
 
     const reload = () => {
         if (!entry.dynamicQuotas) {
             applyModes([...(catalogEntry(entry.id)?.staticQuotaModes ?? [])]);
             return;
         }
-        if (settings.allowUnofficial(entry.id))
-            loadCursorQuotas?.();
+        syncDynamicQuotaModes();
     };
 
     return {
@@ -227,11 +184,7 @@ function buildProviderColumn(
         cell: {
             enabled,
             executable,
-            authStatus,
-            authCheck,
             quota,
-            quotaLoadStatus,
-            quotaLoadButton,
             showPlan,
             showBilling,
             iconUrl,
@@ -280,16 +233,9 @@ function buildServicesMatrix(
             cell: column => column.cell.executable,
         },
         {
-            label: 'Authentication',
-            cell: column => authCell(column.cell.authStatus, column.cell.authCheck),
-        },
-        {
             label: 'Top bar quota',
+            tooltip: 'Cursor choices fill in after you allow the unofficial source and Shell refreshes.',
             cell: column => column.cell.quota,
-        },
-        {
-            label: 'Quota choices',
-            cell: column => quotaLoadCell(column),
         },
         {
             label: 'Show subscription plan',
@@ -351,29 +297,6 @@ function matrixNaCell(): Gtk.Widget {
 function centerSwitch(sw: Gtk.Switch): Gtk.Widget {
     const box = new Gtk.Box({ halign: Gtk.Align.CENTER });
     box.append(sw);
-    return box;
-}
-
-function authCell(status: Gtk.Label, check: Gtk.Button): Gtk.Widget {
-    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
-    status.hexpand = true;
-    const row = new Gtk.Box({ spacing: 8 });
-    row.append(status);
-    row.append(check);
-    box.append(row);
-    return box;
-}
-
-function quotaLoadCell(column: ProviderColumn): Gtk.Widget {
-    if (!column.entry.dynamicQuotas)
-        return matrixNaCell();
-    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true });
-    column.cell.quotaLoadStatus.hexpand = true;
-    const row = new Gtk.Box({ spacing: 8 });
-    row.append(column.cell.quotaLoadStatus);
-    if (column.cell.quotaLoadButton)
-        row.append(column.cell.quotaLoadButton);
-    box.append(row);
     return box;
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { UsageSnapshot } from '../src/lib/model.js';
-import { barEntries, barItemLabel } from '../src/lib/presentation.js';
+import { barEntries, barItemLabel, quotaMenuLineText } from '../src/lib/presentation.js';
 
 function snapshot(remaining?: number): UsageSnapshot {
     return {
@@ -38,6 +38,12 @@ describe('top bar presentation', () => {
             'used',
         );
         expect(entries[0]?.text).toBe('24%');
+    });
+
+    test('menu quota lines follow the same used vs remaining mode', () => {
+        const quota = snapshot(76).quotas[0]!;
+        expect(quotaMenuLineText(quota, 'remaining')).toBe('Five-hour: 76% remaining');
+        expect(quotaMenuLineText(quota, 'used')).toBe('Five-hour: 24% used');
     });
 
     test('can hide provider names in the top bar label', () => {

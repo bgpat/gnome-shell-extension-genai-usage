@@ -43,6 +43,7 @@
 .genai-usage-section {
     spacing: 6px;
     margin: 8px 12px;
+    width: 100%;
 }
 
 .genai-usage-section-header {
@@ -63,8 +64,8 @@
 }
 
 .quota-track {
+    width: 100%;
     height: 6px;
-    min-width: 160px;
     background-color: alpha(currentColor, 0.18);
     border-radius: 3px;
 }
@@ -75,11 +76,16 @@
     border-radius: 3px;
 }
 
+.genai-topbar-editor {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
 .genai-topbar-preview {
     background-color: #303030;
     border-radius: 10px;
-    padding: 14px 18px;
-    min-height: 52px;
+    padding: 8px 12px;
+    min-height: 0;
 }
 
 .genai-topbar-pill {

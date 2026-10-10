@@ -7,12 +7,24 @@ export type UnavailableDisplay = 'hide' | 'placeholder' | 'icon-only';
 export type CachedDataMode = 'show' | 'hide';
 export type QuotaPercentMode = 'remaining' | 'used';
 
+export function quotaPercentForDisplay(quota: QuotaWindow, mode: QuotaPercentMode): number | undefined {
+    if (mode === 'used')
+        return usedPercent(quota.usedPercent, quota.remainingPercent);
+    return quota.remainingPercent;
+}
+
 export function quotaBarText(quota: QuotaWindow | undefined, mode: QuotaPercentMode): string | undefined {
     if (!quota)
         return undefined;
-    if (mode === 'used')
-        return formatRemaining(usedPercent(quota.usedPercent, quota.remainingPercent));
-    return formatRemaining(quota.remainingPercent);
+    return formatRemaining(quotaPercentForDisplay(quota, mode));
+}
+
+export function quotaMenuLineText(quota: QuotaWindow, mode: QuotaPercentMode): string {
+    const value = quotaPercentForDisplay(quota, mode);
+    if (value === undefined)
+        return 'Unavailable';
+    const suffix = mode === 'used' ? 'used' : 'remaining';
+    return `${quota.label}: ${Math.round(value)}% ${suffix}`;
 }
 
 export interface BarEntry {

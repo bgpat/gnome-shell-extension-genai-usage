@@ -6,13 +6,12 @@ import { REFRESH_CHOICES, type ExtensionSettings } from '../gjs/settings.js';
 import { appendLog } from '../gjs/log.js';
 import { clearIconCache } from '../gjs/iconCache.js';
 import { prepareComboRow, refreshComboRowSubtitle } from './comboRow.js';
+import { PREFS_GENERAL_ICON, PREFS_GENERAL_NAME } from './pageIcons.js';
+import { newPreferencesTab } from './preferencesTab.js';
 import { TopBarEditor } from './topBarEditor.js';
 
 export function createGeneralPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = new Adw.PreferencesPage({
-        title: 'General',
-        icon_name: 'preferences-system-symbolic',
-    });
+    const page = newPreferencesTab('General', PREFS_GENERAL_NAME, PREFS_GENERAL_ICON);
 
     const layoutGroup = new Adw.PreferencesGroup({
         title: 'Top bar',
@@ -24,6 +23,15 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
     });
     settings.main.bind('show-provider-names', showNames, 'active', Gio.SettingsBindFlags.DEFAULT);
     layoutGroup.add(showNames);
+    const editor = new TopBarEditor(settings);
+    layoutGroup.add(editor.widget);
+    layoutGroup.margin_bottom = 8;
+    page.add(layoutGroup);
+
+    const quotaGroup = new Adw.PreferencesGroup({
+        title: 'Quota display',
+        description: 'How each quota window is summarized on the panel button and in the dropdown menu.',
+    });
     const quotaPercent = comboRow('Quota percentage', [
         ['remaining', 'Remaining quota'],
         ['used', 'Used quota'],
@@ -41,10 +49,8 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
         if (value && value !== settings.quotaPercentMode)
             settings.main.set_string('quota-percent-mode', value);
     });
-    layoutGroup.add(quotaPercent.row);
-    const editor = new TopBarEditor(settings);
-    layoutGroup.add(editor.widget);
-    page.add(layoutGroup);
+    quotaGroup.add(quotaPercent.row);
+    page.add(quotaGroup);
 
     const refreshGroup = new Adw.PreferencesGroup({ title: 'Refresh' });
     const auto = new Adw.SwitchRow({ title: 'Automatic refresh' });

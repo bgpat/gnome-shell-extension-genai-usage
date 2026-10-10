@@ -33,7 +33,7 @@
       </choices>
       <default>'remaining'</default>
       <summary>Quota percentage</summary>
-      <description>Whether the top bar percentage shows remaining quota or used quota.</description>
+      <description>Whether quota percentages show remaining or used amounts on the panel button and in the dropdown menu.</description>
     </key>
     <key name="unavailable-display" type="s">
       <choices>

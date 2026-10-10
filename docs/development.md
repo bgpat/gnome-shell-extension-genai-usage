@@ -11,6 +11,8 @@ The extension is written in TypeScript and compiled with `tsc` to plain ES modul
 
 Preferences stay on libadwaita 1.4 widgets (`PreferencesWindow`, `PreferencesPage`, `PreferencesGroup`, `ActionRow`, `SwitchRow`, `EntryRow`, `ComboRow`) so GNOME 45 remains possible. `Adw.PreferencesDialog`, `ButtonRow`, and `ToggleGroup` are not used.
 
+Preferences tab icons use **`icon_name` from the system icon theme only** (see `src/prefs/pageIcons.ts`). Do not bundle custom SVG/PNG icons for tabs or register an extension `icons/` search path. Pick names that exist in Adwaita (often under `symbolic/actions/`); unknown names show as a generic gear.
+
 Subprocesses are started with `Gio.Subprocess` and an argument vector. The shell path is not used. `disable()` cancels the current operation and calls `force_exit()` on processes the extension started.
 
 GSettings:

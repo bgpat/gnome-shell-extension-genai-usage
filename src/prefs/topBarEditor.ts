@@ -10,14 +10,20 @@ import {
     snapshotsFromShell,
     subscribeShellSnapshots,
 } from '../gjs/usageDBusClient.js';
+import { formatRemaining } from '../lib/format.js';
 import { catalogEntry, KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
-import { barEntries, barItemLabel } from '../lib/presentation.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import { previewOrder, reorderTarget, type PillBound } from '../lib/barReorder.js';
 import { placeProvider, visibleIds, type LayoutState } from '../lib/layout.js';
 import { appendLog } from '../gjs/log.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
+
+/** Sample remaining quota for the prefs preview only (not live usage data). */
+const PREVIEW_REMAINING_PERCENT: Record<string, number> = {
+    chatgpt: 76,
+    cursor: 42,
+};
 
 export class TopBarEditor {
     readonly widget: Gtk.Box;
@@ -47,8 +53,8 @@ export class TopBarEditor {
             orientation: Gtk.Orientation.HORIZONTAL,
             spacing: 12,
             css_classes: ['genai-topbar-preview'],
-            margin_top: 2,
-            margin_bottom: 2,
+            hexpand: true,
+            halign: Gtk.Align.FILL,
         });
         previewBar.append(this.rowBox);
         this.slideAnim = Adw.TimedAnimation.new(
@@ -62,11 +68,8 @@ export class TopBarEditor {
 
         this.widget = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            spacing: 14,
-            margin_top: 6,
-            margin_bottom: 12,
-            margin_start: 12,
-            margin_end: 12,
+            css_classes: ['genai-topbar-editor'],
+            hexpand: true,
         });
         this.widget.append(previewBar);
 
@@ -164,16 +167,13 @@ export class TopBarEditor {
     }
 
     private pillLabel(id: string): string {
-        const entry = barEntries(
-            [id],
-            this.snapshots,
-            providerId => this.settings.topBarQuota(providerId),
-            this.settings.unavailableDisplay,
-            this.settings.quotaPercentMode,
-        ).find(item => item.providerId === id);
-        if (!entry)
-            return catalogEntry(id)?.displayName ?? id;
-        return barItemLabel(entry, this.settings.showProviderNames) ?? entry.displayName;
+        const name = catalogEntry(id)?.displayName ?? id;
+        const remaining = PREVIEW_REMAINING_PERCENT[id] ?? 67;
+        const value = this.settings.quotaPercentMode === 'used'
+            ? 100 - remaining
+            : remaining;
+        const text = formatRemaining(value) ?? `${value}%`;
+        return this.settings.showProviderNames ? `${name} ${text}` : text;
     }
 
     private appendPillHandle(pill: Gtk.Box, id: string, index: number): void {
