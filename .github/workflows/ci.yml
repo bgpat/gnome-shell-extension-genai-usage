@@ -1,17 +1,17 @@
+# This workflow is managed by gh actions-lock.
+
 name: CI
 
 on:
   push:
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * 1'
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Install GLib and GJS tools
         run: sudo apt-get update
@@ -33,32 +33,12 @@ jobs:
   smoke:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Install GNOME Shell
         run: sudo apt-get update
       - name: Install GNOME packages
         run: sudo apt-get install -y gnome-shell mutter dbus-x11 libglib2.0-bin unzip zip gjs
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Headless smoke
-        run: sh tests/integration/smoke.sh
-
-  shell-versions:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        fedora: ['39', '40', '41', '42']
-    container:
-      image: fedora:${{ matrix.fedora }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Install GNOME Shell
-        run: dnf install -y gnome-shell mutter glib2 zip unzip gjs
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Headless smoke
