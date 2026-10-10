@@ -1,0 +1,26 @@
+# This workflow is managed by gh actions-lock.
+
+name: Shell versions
+
+on:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ['39', '40', '41', '42']
+    container:
+      image: fedora:${{ matrix.fedora }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install GNOME Shell
+        run: dnf install -y gnome-shell mutter glib2 zip unzip gjs
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Headless smoke
+        run: sh tests/integration/smoke.sh
