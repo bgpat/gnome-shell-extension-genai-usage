@@ -1,18 +1,25 @@
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import { formatLastRefresh, formatMoney, formatResetCountdown } from '../lib/format.js';
+import { formatMoney } from '../lib/format.js';
+import {
+    MENU_QUOTA_BAR_FALLBACK_WIDTH,
+    menuQuotaBarFillStyle,
+    menuRefreshLabelText,
+    menuResetLabelText,
+    quotaMenuLineText,
+    tickMenuResetLabels,
+    type MenuResetLabelRow,
+} from '../lib/menuPresentation.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
 
-export interface ResetLabel {
+export interface ResetLabel extends MenuResetLabelRow {
     label: St.Label;
-    resetsAt?: number;
-    refreshedAt?: number;
-    kind: 'reset' | 'refresh';
 }
 
 export function fillProviderSection(
@@ -54,24 +61,17 @@ export function fillProviderSection(
         }));
     }
 
+    const quotaBars: QuotaBarWidgets[] = [];
     for (const quota of snapshot.quotas) {
-        const percent = quota.remainingPercent === undefined
-            ? 'Unavailable'
-            : `${quota.label}: ${Math.round(quota.remainingPercent)}% remaining`;
-        box.add_child(new St.Label({ text: percent }));
-        if (quota.remainingPercent !== undefined) {
-            const track = new St.Widget({ style_class: 'quota-track' });
-            const fill = new St.Widget({ style_class: 'quota-fill' });
-            const width = Math.round(160 * quota.remainingPercent / 100);
-            fill.style = `width: ${width}px;`;
-            track.add_child(fill);
-            box.add_child(track);
-        }
+        box.add_child(new St.Label({ text: quotaMenuLineText(quota) }));
+        if (quota.remainingPercent !== undefined)
+            quotaBars.push(appendQuotaBar(box, quota.remainingPercent));
         const reset = new St.Label({ style_class: 'genai-usage-muted' });
-        reset.text = resetText(quota.resetsAt, nowMs);
+        reset.text = menuResetLabelText(quota.resetsAt, nowMs);
         box.add_child(reset);
         resets.push({ label: reset, resetsAt: quota.resetsAt, kind: 'reset' });
     }
+    layoutSectionQuotaBars(box, quotaBars);
 
     if (snapshot.credits) {
         const parts: string[] = [];
@@ -101,27 +101,75 @@ export function fillProviderSection(
     }
 
     const refreshed = new St.Label({ style_class: 'genai-usage-muted' });
-    refreshed.text = refreshText(snapshot.refreshedAt, nowMs);
+    refreshed.text = menuRefreshLabelText(snapshot.refreshedAt, nowMs);
     box.add_child(refreshed);
     resets.push({ label: refreshed, refreshedAt: snapshot.refreshedAt, kind: 'refresh' });
     return resets;
 }
 
-function resetText(resetsAt: number | undefined, nowMs: number): string {
-    const countdown = formatResetCountdown(resetsAt, nowMs);
-    return countdown ? `Resets in ${countdown}` : 'Reset time unavailable';
+interface QuotaBarWidgets {
+    fill: St.Widget;
+    displayPercent: number;
 }
 
-function refreshText(refreshedAt: number | undefined, nowMs: number): string {
-    const text = formatLastRefresh(refreshedAt, nowMs);
-    return text ? `Updated ${text}` : 'Not updated yet';
+function applyQuotaBarFill(fill: St.Widget, sectionWidth: number, displayPercent: number): boolean {
+    const style = menuQuotaBarFillStyle(sectionWidth, displayPercent)
+        ?? menuQuotaBarFillStyle(MENU_QUOTA_BAR_FALLBACK_WIDTH, displayPercent);
+    if (!style)
+        return false;
+    fill.set_style(style);
+    return sectionWidth > 0;
+}
+
+function appendQuotaBar(box: St.BoxLayout, displayPercent: number): QuotaBarWidgets {
+    const track = new St.Widget({
+        style_class: 'quota-track',
+        reactive: false,
+        x_expand: true,
+    });
+    track.clip_to_allocation = true;
+    const fill = new St.Widget({
+        style_class: 'quota-fill',
+        reactive: false,
+    });
+    track.add_child(fill);
+    box.add_child(track);
+    applyQuotaBarFill(fill, MENU_QUOTA_BAR_FALLBACK_WIDTH, displayPercent);
+    return { fill, displayPercent };
+}
+
+/** Size fills from the section box width once allocated (no menu-item signals). */
+function layoutSectionQuotaBars(box: St.BoxLayout, bars: QuotaBarWidgets[]): void {
+    if (bars.length === 0)
+        return;
+
+    let widthSignal = 0;
+    const sync = (): boolean => {
+        let synced = false;
+        for (const bar of bars)
+            synced = applyQuotaBarFill(bar.fill, box.width, bar.displayPercent) || synced;
+        return synced;
+    };
+
+    const finishWidthWatch = () => {
+        if (widthSignal === 0)
+            return;
+        box.disconnect(widthSignal);
+        widthSignal = 0;
+    };
+
+    const syncAndMaybeStop = () => {
+        if (sync())
+            finishWidthWatch();
+    };
+
+    widthSignal = box.connect('notify::width', syncAndMaybeStop);
+    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        syncAndMaybeStop();
+        return GLib.SOURCE_REMOVE;
+    });
 }
 
 export function tickResetLabels(rows: ResetLabel[], nowMs: number): void {
-    for (const row of rows) {
-        if (row.kind === 'reset')
-            row.label.text = resetText(row.resetsAt, nowMs);
-        else
-            row.label.text = refreshText(row.refreshedAt, nowMs);
-    }
+    tickMenuResetLabels(rows, nowMs);
 }

@@ -29,7 +29,7 @@ const dbusImpl = {
         return snapshotsToJson(scheduler?.snapshots() ?? new Map());
     },
     RefreshAll(): void {
-        void scheduler?.refreshAll(true);
+        scheduler?.refreshAllAsync(true);
     },
 };
 
