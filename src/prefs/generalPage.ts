@@ -6,13 +6,11 @@ import { REFRESH_CHOICES, type ExtensionSettings } from '../gjs/settings.js';
 import { appendLog } from '../gjs/log.js';
 import { clearIconCache } from '../gjs/iconCache.js';
 import { prepareComboRow, refreshComboRowSubtitle } from './comboRow.js';
+import { newGeneralTab } from './preferencesTab.js';
 import { TopBarEditor } from './topBarEditor.js';
 
 export function createGeneralPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = new Adw.PreferencesPage({
-        title: 'General',
-        icon_name: 'preferences-system-symbolic',
-    });
+    const page = newGeneralTab();
 
     const layoutGroup = new Adw.PreferencesGroup({
         title: 'Top bar',
@@ -26,7 +24,32 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
     layoutGroup.add(showNames);
     const editor = new TopBarEditor(settings);
     layoutGroup.add(editor.widget);
+    layoutGroup.margin_bottom = 8;
     page.add(layoutGroup);
+
+    const quotaGroup = new Adw.PreferencesGroup({
+        title: 'Quota display',
+        description: 'How each quota window is summarized on the panel button and in the dropdown menu.',
+    });
+    const quotaPercent = comboRow('Quota percentage', [
+        ['remaining', 'Remaining quota'],
+        ['used', 'Used quota'],
+    ]);
+    let updatingQuotaPercent = false;
+    const syncQuotaPercent = () => {
+        updatingQuotaPercent = true;
+        selectChoice(quotaPercent.row, quotaPercent.ids, settings.quotaPercentMode);
+        updatingQuotaPercent = false;
+    };
+    quotaPercent.row.connect('notify::selected', () => {
+        if (updatingQuotaPercent)
+            return;
+        const value = quotaPercent.ids[quotaPercent.row.selected];
+        if (value && value !== settings.quotaPercentMode)
+            settings.main.set_string('quota-percent-mode', value);
+    });
+    quotaGroup.add(quotaPercent.row);
+    page.add(quotaGroup);
 
     const refreshGroup = new Adw.PreferencesGroup({ title: 'Refresh' });
     const auto = new Adw.SwitchRow({ title: 'Automatic refresh' });
@@ -159,6 +182,7 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
             syncInterval();
             syncLogLevel();
             syncDisplay();
+            syncQuotaPercent();
         },
     };
 }

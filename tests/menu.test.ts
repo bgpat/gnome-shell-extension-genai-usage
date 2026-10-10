@@ -11,9 +11,9 @@ import {
     menuQuotaBarSizes,
     menuRefreshLabelText,
     menuResetLabelText,
-    quotaMenuLineText,
     tickMenuResetLabels,
 } from '../src/lib/menuPresentation.js';
+import { quotaMenuLineText } from '../src/lib/presentation.js';
 
 const quota: QuotaWindow = {
     id: 'primary',
@@ -35,8 +35,8 @@ describe('top bar menu presentation', () => {
     });
 
     test('formats quota lines for the dropdown', () => {
-        expect(quotaMenuLineText(quota)).toBe('Five-hour: 76% remaining');
-        expect(quotaMenuLineText({ ...quota, remainingPercent: undefined })).toBe('Unavailable');
+        expect(quotaMenuLineText(quota, 'remaining')).toBe('Five-hour: 76% remaining');
+        expect(quotaMenuLineText({ ...quota, remainingPercent: undefined }, 'remaining')).toBe('Unavailable');
     });
 
     test('sizes the quota bar from menu width minus section margins', () => {

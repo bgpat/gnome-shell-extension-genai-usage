@@ -169,7 +169,10 @@ export class TopBarEditor {
     private pillLabel(id: string): string {
         const name = catalogEntry(id)?.displayName ?? id;
         const remaining = PREVIEW_REMAINING_PERCENT[id] ?? 67;
-        const text = formatRemaining(remaining) ?? `${remaining}%`;
+        const value = this.settings.quotaPercentMode === 'used'
+            ? 100 - remaining
+            : remaining;
+        const text = formatRemaining(value) ?? `${value}%`;
         return this.settings.showProviderNames ? `${name} ${text}` : text;
     }
 

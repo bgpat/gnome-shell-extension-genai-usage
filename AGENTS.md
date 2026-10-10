@@ -1,10 +1,19 @@
 # 作業ルール
 
+## 作業場所（プロジェクト直下）
+
+- **リポジトリ直下**（プライマリ worktree、`gnome-shell-extension-genai-usage/`）は **`main` 固定**。ここで feature ブランチに切り替えたり、ソース・設定・ワークフローを編集したり **コミットしたりしない**。
+- 実装・検証・コミットは **`git worktree`（例: `.worktrees/fix-quota-used-in-menu/`）** 上のブランチだけで行う。`bun run dev` / `dev:prefs` / `install:local` も **作業中の worktree の cwd** から実行する（直下から実行しない）。
+- エージェントは `StrReplace` / `Write` のパスが **`/.worktrees/` 以下か** を編集前に確認する。直下の `src/` 等へ書かない。例外はユーザーが明示したときのみ。
+- 直下を `main` からズラしたブランチにしてしまった場合は、作業を worktree へ移したうえで **`git checkout main`** して戻す（直下に未コミット変更を残さない）。
+
 ## 変更の提出
 
 - コード・設定・ワークフローなどリポジトリへの変更は、**main へ直接 push せずブランチを切って PR を作成**する。
 - PR には `gh pr create` を使い、**タイトル・本文（Summary / Test plan など）は英語**で書く。本文は HEREDOC / `--body-file` で渡す（改行の `\n` 埋め込みを避ける）。
 - ユーザーが明示的に main への直接 commit / push を依頼した場合のみ例外。
+- **作業のゴールはマージ可能な状態まで**とする。変更を入れたら **`origin/main` を取り込みコンフリクト解消**、`bun run typecheck` と `bun test` を通し、push 後 **`gh pr checks` で CI が green** になるまで続ける（必須チェック **`Shell versions`** を含む）。ローカルだけ直して PR を放置しない。
+- **一時的なファイルはコミットしない**（調査用スクリプト、再現用ワンオフ、デバッグ出力の取り込みなど）。リポジトリに残す価値があるものだけ `git add` する。
 
 ## GitHub Actions
 
@@ -47,6 +56,7 @@
 | 並び・表示/非表示 | GSettings + `lib/layout.ts` | 順序変更だけでは API 再取得は不要（下記「設定 watch」） |
 | ログ | Shell メモリ → D-Bus Log | prefs の `appendLog` は Shell へ転送 |
 | アイコン | ディスクキャッシュ（`iconCache`、プロセス共通パス） | Shell / prefs は別 UI キットのため**それぞれ** `refreshProviderGicon` する。キャッシュファイルは共有 |
+| 設定タブアイコン | `src/prefs/preferencesTab.ts` | タブ追加・変更はここだけ |
 
 ### 既知の粗さ（改善候補・意図的でない二重取得）
 

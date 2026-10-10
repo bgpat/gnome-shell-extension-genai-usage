@@ -2,7 +2,16 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-    { ignores: ['dist/**', 'build/**', 'node_modules/**', '**/*.zip', 'tests/gjs/**', 'scripts/prefs-dev-entry.js'] },
+    {
+        ignores: [
+            'dist/**',
+            'build/**',
+            'node_modules/**',
+            '**/*.zip',
+            'tests/gjs/**',
+            'scripts/prefs-dev-entry.js',
+        ],
+    },
     eslint.configs.recommended,
     ...tseslint.configs.recommended,
     {

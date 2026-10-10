@@ -10,6 +10,7 @@ import { refreshProvider } from '../gjs/providers/registry.js';
 import { shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
+import { newServicesTab } from './preferencesTab.js';
 
 interface ProviderColumn {
     entry: ProviderCatalogEntry;
@@ -26,10 +27,7 @@ interface ProviderColumn {
 }
 
 export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = new Adw.PreferencesPage({
-        title: 'Services',
-        icon_name: 'applications-system-symbolic',
-    });
+    const page = newServicesTab();
     const cancellable = new Gio.Cancellable();
     const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
     const group = new Adw.PreferencesGroup({

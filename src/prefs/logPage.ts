@@ -3,6 +3,7 @@ import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 
 import type { LogLevel } from '../gjs/log.js';
+import { newLogTab } from './preferencesTab.js';
 import {
     LOG_MAX_BYTES,
     readLog,
@@ -14,10 +15,7 @@ const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const LEVEL_IN_LINE = / \[(debug|info|warn|error)\]/;
 
 export function createLogPage(): { page: Adw.PreferencesPage } {
-    const page = new Adw.PreferencesPage({
-        title: 'Log',
-        icon_name: 'view-list-symbolic',
-    });
+    const page = newLogTab();
 
     const group = new Adw.PreferencesGroup({
         title: 'Extension log',

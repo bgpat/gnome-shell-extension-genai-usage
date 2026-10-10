@@ -1,5 +1,4 @@
 import { formatLastRefresh, formatResetCountdown } from './format.js';
-import type { QuotaWindow } from './model.js';
 
 /** Matches `.genai-usage-section` horizontal margins (12px each side). */
 export const MENU_SECTION_HORIZONTAL_MARGIN = 24;
@@ -26,12 +25,6 @@ export function menuEnabledProviderIds(
     return order.filter(id => enabled.has(id));
 }
 
-export function quotaMenuLineText(quota: QuotaWindow): string {
-    if (quota.remainingPercent === undefined)
-        return 'Unavailable';
-    return `${quota.label}: ${Math.round(quota.remainingPercent)}% remaining`;
-}
-
 export function menuQuotaBarInnerWidth(menuItemWidth: number): number | undefined {
     if (menuItemWidth <= 0)
         return undefined;
@@ -49,7 +42,6 @@ export function menuQuotaBarSizes(
     return { trackWidth, fillWidth, height };
 }
 
-/** Inline style for the fill widget once the track has been allocated its width. */
 export function menuQuotaBarFillStyle(trackWidth: number, displayPercent: number): string | undefined {
     if (trackWidth <= 0)
         return undefined;
