@@ -10,9 +10,9 @@ on:
       - reopened
 
 jobs:
-  smoke:
+  fedora-smoke:
+    name: fedora ${{ matrix.fedora }}
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -30,3 +30,18 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Headless smoke
         run: sh tests/integration/smoke.sh
+
+  report:
+    name: Shell versions
+    needs: fedora-smoke
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all Fedora smoke jobs to pass
+        env:
+          FEDORA_SMOKE_RESULT: ${{ needs.fedora-smoke.result }}
+        run: |
+          if [ "$FEDORA_SMOKE_RESULT" != "success" ]; then
+            echo "::error::Fedora smoke matrix result: $FEDORA_SMOKE_RESULT"
+            exit 1
+          fi
