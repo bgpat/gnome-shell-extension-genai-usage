@@ -5,6 +5,7 @@ import { appendLog, registerShellLogDBus, syncMinLogLevelFromSettings } from './
 import { startLogService, stopLogService } from './gjs/logDBusServer.js';
 import { bindUsageScheduler, emitUsageSnapshotsChanged } from './gjs/usageDBusServer.js';
 import { ExtensionSettings } from './gjs/settings.js';
+import { runShellSafe } from './gjs/shellSafe.js';
 import { UsageIndicator } from './shell/indicator.js';
 import { RefreshScheduler } from './shell/refreshScheduler.js';
 
@@ -14,40 +15,48 @@ export default class GenaiUsageExtension extends Extension {
     private indicator?: UsageIndicator;
 
     enable(): void {
-        registerShellLogDBus();
-        startLogService();
-        const settings = new ExtensionSettings(this.dir);
-        syncMinLogLevelFromSettings(settings);
-        const scheduler = new RefreshScheduler(settings);
-        const indicator = new UsageIndicator(this, settings, scheduler);
-        this.settings = settings;
-        this.scheduler = scheduler;
-        this.indicator = indicator;
-        bindUsageScheduler(scheduler);
-        Main.panel.addToStatusArea(this.uuid, indicator.button);
-        settings.watch(() => {
+        runShellSafe('Extension enable', () => {
+            registerShellLogDBus();
+            startLogService();
+            const settings = new ExtensionSettings(this.dir);
             syncMinLogLevelFromSettings(settings);
-            scheduler.onSettingsChanged();
+            const scheduler = new RefreshScheduler(settings);
+            const indicator = new UsageIndicator(this, settings, scheduler);
+            this.settings = settings;
+            this.scheduler = scheduler;
+            this.indicator = indicator;
+            bindUsageScheduler(scheduler);
+            Main.panel.addToStatusArea(this.uuid, indicator.button);
+            settings.watch(() => {
+                runShellSafe('Settings changed (shell)', () => {
+                    syncMinLogLevelFromSettings(settings);
+                    scheduler.onSettingsChanged();
+                    indicator.update();
+                }, 'user');
+            }, 'shell');
+            scheduler.onChange = () => {
+                runShellSafe('Usage snapshots changed', () => {
+                    indicator.update();
+                    emitUsageSnapshotsChanged(scheduler.snapshots());
+                });
+            };
+            scheduler.start();
             indicator.update();
-        }, 'shell');
-        scheduler.onChange = () => {
-            indicator.update();
-            emitUsageSnapshotsChanged(scheduler.snapshots());
-        };
-        scheduler.start();
-        indicator.update();
-        appendLog('info', 'Extension enabled in GNOME Shell.', 'background');
+            appendLog('info', 'Extension enabled in GNOME Shell.', 'background');
+        });
     }
 
     disable(): void {
-        appendLog('info', 'Extension disabled in GNOME Shell.', 'background');
-        bindUsageScheduler(null);
-        stopLogService();
-        this.scheduler?.stop();
-        this.scheduler = undefined;
-        this.indicator?.destroy();
-        this.indicator = undefined;
-        this.settings?.destroy();
-        this.settings = undefined;
+        runShellSafe('Extension disable', () => {
+            appendLog('info', 'Extension disabled in GNOME Shell.', 'background');
+            bindUsageScheduler(null);
+            stopLogService();
+            this.scheduler?.stop();
+            this.scheduler = undefined;
+            this.indicator?.destroy();
+            this.indicator = undefined;
+            this.settings?.destroy();
+            this.settings = undefined;
+        });
     }
 }

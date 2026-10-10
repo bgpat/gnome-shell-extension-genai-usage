@@ -30,6 +30,23 @@
 
 症状のある UI だけ直す**局所最適**を避け、データの流れ全体を確認してから変更する。
 
+### Shell / GJS（型が効きにくい境界）
+
+TypeScript（`strict`）と GIR では、次は**コンパイル時に保証できない**。ここは必ず実行時防御する。
+
+- `resource:///org/gnome/shell/ui/*.js`（`PopupMenu` など）の **`connect(signal, …)`** — シグナル名は `string` のまま。存在しないシグナル（例: メニュー行への `mapped`）は **接続時に同期的に例外**。
+- **St / Clutter のレイアウト** — `%` 幅、`get_width()` のタイミング、メニュー未表示時の allocation。
+- **浮いている Promise** — `void refreshAll()` などは型チェックを通るが unhandled rejection になり得る。
+
+**方針**
+
+- 境界では **`runShellSafe`（`src/gjs/shellSafe.ts`）** と **`shellErrorText`（`src/lib/shellError.ts`）** で try/catch し、`appendLog('error', …)` して**拡張全体を落とさない**。
+- 特に: `extension` の enable/disable と settings / scheduler コールバック、`UsageIndicator.update` / `rebuildMenu`（プロバイダーごと）、メニュー `activate`、D-Bus メソッド、GLib ソース（`idle_add` / タイマー）から呼ぶ UI 更新、GObject シグナルハンドラ内の処理。
+- **`rebuildMenu`**: セクション構築が失敗しても **Refresh / Preferences は必ず追加**する（`removeAll` 後の部分失敗でメニューが無反応にならないようにする）。
+- メニューが開いている間は **`deferMenuRebuildWhileOpen`** で `removeAll` による再構築を避ける。
+- Promise は **`refreshAllAsync` + `.catch()`** または呼び出し側の try/catch。reject をそのまま外に出さない。
+- 純粋な表示・計算は `lib/` に置き、単体テストで担保する（Shell 実機は smoke / 手動確認）。
+
 ### 利用状況データの単一ソース
 
 - **正本**: GNOME Shell 内の `RefreshScheduler`（`src/shell/refreshScheduler.ts`）。トップバー（`UsageIndicator`）とメニューはここだけを参照する。

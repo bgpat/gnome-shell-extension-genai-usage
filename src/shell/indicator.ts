@@ -10,6 +10,7 @@ import { visibleIds } from '../lib/layout.js';
 import { deferMenuRebuildWhileOpen, menuEnabledProviderIds } from '../lib/menuPresentation.js';
 import { barEntries, barItemLabel } from '../lib/presentation.js';
 import { appendLog } from '../gjs/log.js';
+import { runShellSafe, shellErrorText } from '../gjs/shellSafe.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { Countdown } from './countdown.js';
 import { attachProviderStIcon } from './providerIconView.js';
@@ -53,39 +54,38 @@ export class UsageIndicator {
         });
         this.box.clip_to_allocation = false;
         this.button.add_child(this.box);
-        this.countdown = new Countdown(() => tickResetLabels(this.resetLabels, Date.now()));
+        this.countdown = new Countdown(() => {
+            runShellSafe('Menu reset labels', () => tickResetLabels(this.resetLabels, Date.now()));
+        });
         this.menuHandler = this.menu.connect('open-state-changed', (...args: unknown[]) => {
-            const isOpen = Boolean(args[1]);
-            this.menuIsOpen = isOpen;
-            if (isOpen) {
-                appendLog('debug', 'Top bar menu opened.', 'user');
-                GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                    relayoutOpenMenuQuotaBars();
-                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                        relayoutOpenMenuQuotaBars();
+            runShellSafe('Top bar menu open-state', () => {
+                const isOpen = Boolean(args[1]);
+                this.menuIsOpen = isOpen;
+                if (isOpen) {
+                    appendLog('debug', 'Top bar menu opened.', 'user');
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        runShellSafe('Menu quota bar idle relayout', () => relayoutOpenMenuQuotaBars(), 'user');
+                        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                            runShellSafe('Menu quota bar idle relayout', () => relayoutOpenMenuQuotaBars(), 'user');
+                            return GLib.SOURCE_REMOVE;
+                        });
                         return GLib.SOURCE_REMOVE;
                     });
-                    return GLib.SOURCE_REMOVE;
-                });
-                this.countdown.start();
-            } else {
-                appendLog('debug', 'Top bar menu closed.', 'user');
-                this.countdown.stop();
-                if (this.pendingMenuRebuild) {
-                    this.pendingMenuRebuild = false;
-                    this.rebuildMenu(this.settings.enabledSet(), this.iconGeneration);
+                    this.countdown.start();
+                } else {
+                    appendLog('debug', 'Top bar menu closed.', 'user');
+                    this.countdown.stop();
+                    if (this.pendingMenuRebuild) {
+                        this.pendingMenuRebuild = false;
+                        this.rebuildMenu(this.settings.enabledSet(), this.iconGeneration);
+                    }
                 }
-            }
+            }, 'user');
         });
     }
 
     update(): void {
-        try {
-            this.updateInner();
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            appendLog('error', `Top bar update failed: ${message}`, 'background');
-        }
+        runShellSafe('Top bar update', () => this.updateInner());
     }
 
     private updateInner(): void {
@@ -164,31 +164,38 @@ export class UsageIndicator {
             const menuIds = menuEnabledProviderIds(this.settings.layout().order, enabled);
             let first = true;
             for (const id of menuIds) {
-                if (!first)
-                    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-                first = false;
-                const section = new PopupMenu.PopupMenuSection();
-                const view = this.scheduler.view(id);
-                const labels = fillProviderSection(
-                    section,
-                    id,
-                    view.snapshot,
-                    this.settings.showPlan(id),
-                    this.settings.showBilling(id),
-                    now,
-                    this.settings,
-                    this.cancellable,
-                    () => generation === this.iconGeneration,
-                );
-                this.resetLabels.push(...labels);
-                this.menu.addMenuItem(section);
+                try {
+                    if (!first)
+                        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                    first = false;
+                    const section = new PopupMenu.PopupMenuSection();
+                    const view = this.scheduler.view(id);
+                    const labels = fillProviderSection(
+                        section,
+                        id,
+                        view.snapshot,
+                        this.settings.showPlan(id),
+                        this.settings.showBilling(id),
+                        now,
+                        this.settings,
+                        this.cancellable,
+                        () => generation === this.iconGeneration,
+                    );
+                    this.resetLabels.push(...labels);
+                    this.menu.addMenuItem(section);
+                } catch (error) {
+                    appendLog(
+                        'error',
+                        `Menu section ${id} failed: ${shellErrorText(error)}`,
+                        'background',
+                    );
+                }
             }
             hasSections = !first;
             if (hasSections)
                 this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            appendLog('error', `Menu rebuild failed: ${message}`, 'background');
+            appendLog('error', `Menu rebuild failed: ${shellErrorText(error)}`, 'background');
         }
         this.addAction('Refresh', () => {
             appendLog('info', 'Top bar menu: Refresh chosen.', 'user');
@@ -202,7 +209,7 @@ export class UsageIndicator {
 
     private addAction(label: string, callback: () => void): void {
         const item = new PopupMenu.PopupMenuItem(label);
-        item.connect('activate', callback);
+        item.connect('activate', () => runShellSafe(`Menu action ${label}`, callback, 'user'));
         this.menu.addMenuItem(item);
     }
 

@@ -4,6 +4,8 @@ import GLib from 'gi://GLib';
 import { snapshotsToJson } from '../lib/snapshotJson.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import type { RefreshScheduler } from '../shell/refreshScheduler.js';
+import { appendLog } from './log.js';
+import { runShellSafe, shellErrorText } from './shellSafe.js';
 
 export const USAGE_OBJECT_PATH = '/io/github/bgpat/GenaiUsage/Usage';
 
@@ -26,10 +28,15 @@ let scheduler: RefreshScheduler | null = null;
 
 const dbusImpl = {
     GetSnapshots(): string {
-        return snapshotsToJson(scheduler?.snapshots() ?? new Map());
+        try {
+            return snapshotsToJson(scheduler?.snapshots() ?? new Map());
+        } catch (error) {
+            appendLog('error', `GetSnapshots failed: ${shellErrorText(error)}`, 'background');
+            return snapshotsToJson(new Map());
+        }
     },
     RefreshAll(): void {
-        scheduler?.refreshAllAsync(true);
+        runShellSafe('D-Bus RefreshAll', () => scheduler?.refreshAllAsync(true), 'user');
     },
 };
 
@@ -40,15 +47,13 @@ export function bindUsageScheduler(next: RefreshScheduler | null): void {
 export function emitUsageSnapshotsChanged(snapshots: ReadonlyMap<string, UsageSnapshot>): void {
     if (!exported || !connection)
         return;
-    try {
-        exported.emit_signal(
+    runShellSafe('Usage Changed signal', () => {
+        exported!.emit_signal(
             'Changed',
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GIR duplicate GLib paths
             new GLib.Variant('(s)', [snapshotsToJson(snapshots)]) as any,
         );
-    } catch {
-        // Preferences may not be open.
-    }
+    });
 }
 
 export function attachUsageService(conn: Gio.DBusConnection): void {

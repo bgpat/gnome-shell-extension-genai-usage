@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import { appendLog } from '../gjs/log.js';
+import { runShellSafe } from '../gjs/shellSafe.js';
 import { providerGicon, refreshProviderGicon } from '../gjs/providerIcon.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 
@@ -27,17 +28,19 @@ export function attachProviderStIcon(
 ): void {
     let icon: St.Icon | null = null;
     const apply = (gicon: Gio.Icon | undefined) => {
-        if (!gicon)
-            return;
-        if (!icon) {
-            icon = new St.Icon({ icon_size: size, style_class: ICON_CLASSES });
-            icon.clip_to_allocation = false;
-            box.insert_child_at_index(icon, atIndex);
-            if (icons)
-                icons.set(providerId, icon);
-        }
-        icon.icon_name = '';
-        setStGicon(icon, gicon);
+        runShellSafe(`Apply icon ${providerId}`, () => {
+            if (!gicon)
+                return;
+            if (!icon) {
+                icon = new St.Icon({ icon_size: size, style_class: ICON_CLASSES });
+                icon.clip_to_allocation = false;
+                box.insert_child_at_index(icon, atIndex);
+                if (icons)
+                    icons.set(providerId, icon);
+            }
+            icon.icon_name = '';
+            setStGicon(icon, gicon);
+        });
     };
     apply(providerGicon(providerId, settings));
     void refreshProviderGicon(providerId, settings, cancellable).then(gicon => {
