@@ -16,7 +16,6 @@ if (tsc.status !== 0)
 
 cpSync(join(root, 'dist'), build, { recursive: true });
 cpSync(join(root, 'schemas'), join(build, 'schemas'), { recursive: true });
-cpSync(join(root, 'icons'), join(build, 'icons'), { recursive: true });
 cpSync(join(root, 'metadata.json'), join(build, 'metadata.json'));
 cpSync(join(root, 'stylesheet.css'), join(build, 'stylesheet.css'));
 
