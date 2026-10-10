@@ -4,7 +4,7 @@ import { normalizeLayout, type LayoutState } from '../lib/layout.js';
 import { type LogLevel, parseLogLevel } from '../lib/logLevel.js';
 import { publicError } from '../lib/model.js';
 import { KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
-import type { CachedDataMode, UnavailableDisplay } from '../lib/presentation.js';
+import type { CachedDataMode, QuotaPercentMode, UnavailableDisplay } from '../lib/presentation.js';
 import { appendLog, syncMinLogLevelFromSettings } from './log.js';
 
 export const MAIN_SCHEMA = 'org.gnome.shell.extensions.genai-usage';
@@ -107,6 +107,10 @@ export class ExtensionSettings {
 
     get showProviderNames(): boolean {
         return this.main.get_boolean('show-provider-names');
+    }
+
+    get quotaPercentMode(): QuotaPercentMode {
+        return this.main.get_string('quota-percent-mode') === 'used' ? 'used' : 'remaining';
     }
 
     get unavailableDisplay(): UnavailableDisplay {

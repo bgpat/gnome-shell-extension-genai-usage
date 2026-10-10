@@ -64,6 +64,7 @@ export class UsageIndicator {
             this.scheduler.snapshots(),
             id => this.settings.topBarQuota(id),
             this.settings.unavailableDisplay,
+            this.settings.quotaPercentMode,
         );
         this.iconGeneration += 1;
         const generation = this.iconGeneration;

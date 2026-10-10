@@ -24,6 +24,24 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
     });
     settings.main.bind('show-provider-names', showNames, 'active', Gio.SettingsBindFlags.DEFAULT);
     layoutGroup.add(showNames);
+    const quotaPercent = comboRow('Quota percentage', [
+        ['remaining', 'Remaining quota'],
+        ['used', 'Used quota'],
+    ]);
+    let updatingQuotaPercent = false;
+    const syncQuotaPercent = () => {
+        updatingQuotaPercent = true;
+        selectChoice(quotaPercent.row, quotaPercent.ids, settings.quotaPercentMode);
+        updatingQuotaPercent = false;
+    };
+    quotaPercent.row.connect('notify::selected', () => {
+        if (updatingQuotaPercent)
+            return;
+        const value = quotaPercent.ids[quotaPercent.row.selected];
+        if (value && value !== settings.quotaPercentMode)
+            settings.main.set_string('quota-percent-mode', value);
+    });
+    layoutGroup.add(quotaPercent.row);
     const editor = new TopBarEditor(settings);
     layoutGroup.add(editor.widget);
     page.add(layoutGroup);
@@ -159,6 +177,7 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
             syncInterval();
             syncLogLevel();
             syncDisplay();
+            syncQuotaPercent();
         },
     };
 }
