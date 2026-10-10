@@ -17,7 +17,7 @@ while [ "$i" -lt 60 ]; do
       wait "$shell_pid" || true
       exit 0
     fi
-    if grep -qE '"error" s ".+"' /tmp/genai-usage-extension-info.txt; then
+    if grep -qE '"error" s "[^"]+"' /tmp/genai-usage-extension-info.txt; then
       echo "extension failed to load"
       cat /tmp/genai-usage-extension-info.txt
       kill "$shell_pid"
