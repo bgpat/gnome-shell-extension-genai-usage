@@ -11,4 +11,4 @@ The extensions.gnome.org upload is the same zip. It must not contain `node_modul
 
 Before uploading, read the [review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html). In particular: no work before `enable()`, cleanup in `disable()`, no GTK in the shell process, no trademark logos in the zip, and no minified code.
 
-The scheduled Fedora job does not by itself change `shell-version`. Update the metadata only after inspecting a successful log.
+The Fedora matrix in `test-multi-versions.yml` does not by itself change `shell-version`. Update the metadata only after inspecting a successful log.
