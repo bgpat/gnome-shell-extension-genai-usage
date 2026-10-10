@@ -1,0 +1,38 @@
+# Testing
+
+Unit tests do not need a GNOME session or account credentials.
+
+```sh
+bun test
+```
+
+They cover quota selection, layout, formatting, JSON-RPC framing, ChatGPT and Cursor normalization fixtures, icon URL checks, and `glib-compile-schemas --strict`.
+
+After `bun run build`:
+
+```sh
+gjs -m tests/gjs/subprocess.js
+```
+
+That test runs `/bin/echo`, stops `/bin/sleep` at a timeout, and cancels another sleep. It does not call Codex or Cursor.
+
+## GitHub Actions
+
+`.github/workflows/ci.yml`:
+
+1. On every push and pull request, `ubuntu-latest` runs typecheck, lint, unit tests, packaging, and the GJS subprocess test.
+2. `ubuntu-24.04` installs GNOME Shell and runs `tests/integration/smoke.sh`. Ubuntu 24.04 ships GNOME Shell 46. The script enables the extension in a private D-Bus session and checks `GetExtensionInfo`.
+3. A Fedora matrix for Shell 45–48 (`fedora:39` through `fedora:42`) runs on a weekly schedule or a manual dispatch. It is allowed to fail. Versions are added to `metadata.json` only after a run actually loads the extension.
+
+`shell-version` currently lists 45 and 46.
+
+- 46 was loaded with `gnome-shell --headless --virtual-monitor` on the development host (GNOME Shell 46.0 / mutter 46.2). `GetExtensionInfo` reported state ENABLED and an empty error string. Ubuntu 24.04 CI uses the same Shell series.
+- 45 is included because the code uses the GNOME 45 extension model (ES modules, `Extension.enable` / `disable`, libadwaita 1.4 preferences) and no API added after 45. It has not had its own container run in this repository yet. Remove 45 from `metadata.json` if the scheduled Fedora 39 job fails.
+
+## Headless smoke locally
+
+```sh
+sh tests/integration/smoke.sh
+```
+
+The script uses a temporary `XDG_DATA_HOME` and `dbus-run-session`, so it does not install into the running session.
