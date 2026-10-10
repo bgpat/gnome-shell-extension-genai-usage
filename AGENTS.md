@@ -55,7 +55,7 @@
 | 並び・表示/非表示 | GSettings + `lib/layout.ts` | 順序変更だけでは API 再取得は不要（下記「設定 watch」） |
 | ログ | Shell メモリ → D-Bus Log | prefs の `appendLog` は Shell へ転送 |
 | アイコン | ディスクキャッシュ（`iconCache`、プロセス共通パス） | Shell / prefs は別 UI キットのため**それぞれ** `refreshProviderGicon` する。キャッシュファイルは共有 |
-| 設定タブアイコン | `src/prefs/pageIcons.ts`（テーマの `icon_name` のみ） | **カスタム同梱アイコン禁止**（`icons/` の pack、`IconTheme.add_search_path` など） |
+| 設定タブアイコン | `src/prefs/pageIcons.ts` + `preferencesTab.ts` | タブ追加・変更はここだけ |
 
 ### 既知の粗さ（改善候補・意図的でない二重取得）
 
