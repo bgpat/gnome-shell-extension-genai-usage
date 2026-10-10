@@ -26,9 +26,9 @@ If loading fails:
 - Install `sqlite3` if only the Cursor app database is present.
 - A token that expires within 60 seconds is ignored. Sign in again. The extension does not refresh tokens.
 
-## Icons are generic shapes
+## Icons are missing
 
-Web download is on by default. A failed download falls back to the icon theme (`chatgpt`, `co.anysphere.cursor`) and then to the bundled shapes. ChatGPT's own site often blocks favicon requests, so the default URL is the Wikimedia SVG. You can set another HTTPS URL per provider. **Clear** on the General page deletes the icon cache.
+Web download is on by default. If a download fails, no icon is shown. ChatGPT uses `https://chatgpt.com/favicon.svg` and Cursor uses `https://cursor.com/favicon.svg`. Transient errors are retried up to four times with backoff. Set another HTTPS image URL per provider on the Services page. **Clear** on the General page deletes the icon cache and reloads icons in the shell.
 
 ## Settings do not apply
 

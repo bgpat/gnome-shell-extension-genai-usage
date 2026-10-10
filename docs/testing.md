@@ -18,16 +18,21 @@ That test runs `/bin/echo`, stops `/bin/sleep` at a timeout, and cancels another
 
 ## GitHub Actions
 
+Workflow `uses` dependencies are pinned with [gh-actions-lock](https://github.com/github/gh-actions-lock) (`.github/workflows/actions.lock`). YAML refs stay major-only (e.g. `@v7`); run `gh actions-lock --no-narrow` after changing actions and commit the lockfile.
+
 `.github/workflows/ci.yml`:
 
 1. On every push and pull request, `ubuntu-latest` runs typecheck, lint, unit tests, packaging, and the GJS subprocess test.
 2. `ubuntu-24.04` installs GNOME Shell and runs `tests/integration/smoke.sh`. Ubuntu 24.04 ships GNOME Shell 46. The script enables the extension in a private D-Bus session and checks `GetExtensionInfo`.
-3. A Fedora matrix for Shell 45–48 (`fedora:39` through `fedora:42`) runs on a weekly schedule or a manual dispatch. It is allowed to fail. Versions are added to `metadata.json` only after a run actually loads the extension.
+
+`.github/workflows/test-multi-versions.yml` (pull requests only):
+
+3. A Fedora matrix for Shell 45–48 (`fedora:39` through `fedora:42`) runs `tests/integration/smoke.sh` in each container. It is allowed to fail. Versions are added to `metadata.json` only after a run actually loads the extension.
 
 `shell-version` currently lists 45 and 46.
 
 - 46 was loaded with `gnome-shell --headless --virtual-monitor` on the development host (GNOME Shell 46.0 / mutter 46.2). `GetExtensionInfo` reported state ENABLED and an empty error string. Ubuntu 24.04 CI uses the same Shell series.
-- 45 is included because the code uses the GNOME 45 extension model (ES modules, `Extension.enable` / `disable`, libadwaita 1.4 preferences) and no API added after 45. It has not had its own container run in this repository yet. Remove 45 from `metadata.json` if the scheduled Fedora 39 job fails.
+- 45 is included because the code uses the GNOME 45 extension model (ES modules, `Extension.enable` / `disable`, libadwaita 1.4 preferences) and no API added after 45. It has not had its own container run in this repository yet. Remove 45 from `metadata.json` if the Fedora 39 job in `test-multi-versions.yml` fails.
 
 ## Headless smoke locally
 
