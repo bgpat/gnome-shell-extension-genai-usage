@@ -1,0 +1,8 @@
+{
+  "uuid": "genai-usage@bgpat.github.io",
+  "name": "GenAI Usage",
+  "description": "Shows ChatGPT and Cursor usage in the top bar.\n\nProvider icons are downloaded over HTTPS when that setting is on. ChatGPT quotas come from the local Codex app-server. Cursor quota details use an optional, off-by-default unofficial source.",
+  "shell-version": ["45", "46"],
+  "url": "https://github.com/bgpat/gnome-shell-extension-genai-usage",
+  "settings-schema": "org.gnome.shell.extensions.genai-usage"
+}

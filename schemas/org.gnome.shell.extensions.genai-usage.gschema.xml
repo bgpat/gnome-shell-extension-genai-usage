@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.genai-usage" path="/org/gnome/shell/extensions/genai-usage/">
+    <key name="provider-order" type="as">
+      <default>['chatgpt', 'cursor']</default>
+      <summary>Provider order</summary>
+      <description>Order of providers in the top bar and menus. Disabled providers stay in this list.</description>
+    </key>
+    <key name="hidden-providers" type="as">
+      <default>[]</default>
+      <summary>Hidden providers</summary>
+      <description>Providers kept out of the top bar. Order is preserved when they are shown again.</description>
+    </key>
+    <key name="auto-refresh" type="b">
+      <default>true</default>
+      <summary>Automatic refresh</summary>
+      <description>Whether to refresh provider data on a timer.</description>
+    </key>
+    <key name="refresh-interval" type="u">
+      <default>5</default>
+      <summary>Refresh interval</summary>
+      <description>Minutes between automatic refreshes. The preferences window offers 1, 5, 15, and 30.</description>
+    </key>
+    <key name="unavailable-display" type="s">
+      <choices>
+        <choice value="hide"/>
+        <choice value="placeholder"/>
+        <choice value="icon-only"/>
+      </choices>
+      <default>'placeholder'</default>
+      <summary>Unavailable data</summary>
+      <description>How the top bar treats a provider that has no usable quota.</description>
+    </key>
+    <key name="cached-data" type="s">
+      <choices>
+        <choice value="show"/>
+        <choice value="hide"/>
+      </choices>
+      <default>'show'</default>
+      <summary>Cached data</summary>
+      <description>Whether to keep showing the last successful quota when a later refresh fails. The timestamp is shown only in the menu.</description>
+    </key>
+    <key name="use-web-icons" type="b">
+      <default>true</default>
+      <summary>Download icons</summary>
+      <description>Download provider icons over HTTPS. When off, theme icons and the bundled fallbacks are used.</description>
+    </key>
+  </schema>
+
+  <schema id="org.gnome.shell.extensions.genai-usage.provider">
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+      <description>Whether this provider is active. Order and visibility are kept while it is disabled.</description>
+    </key>
+    <key name="executable-path" type="s">
+      <default>''</default>
+      <summary>Executable path</summary>
+      <description>Absolute path to the provider CLI. Empty uses automatic discovery.</description>
+    </key>
+    <key name="top-bar-quota" type="s">
+      <default>'lowest'</default>
+      <summary>Top bar quota</summary>
+      <description>Which quota percentage to show in the top bar.</description>
+    </key>
+    <key name="show-plan" type="b">
+      <default>true</default>
+      <summary>Show plan</summary>
+      <description>Whether the menu shows the subscription plan when the provider reports one.</description>
+    </key>
+    <key name="show-billing" type="b">
+      <default>true</default>
+      <summary>Show billing</summary>
+      <description>Whether the menu shows billing amounts when the provider reports them.</description>
+    </key>
+    <key name="icon-url" type="s">
+      <default>''</default>
+      <summary>Icon URL</summary>
+      <description>HTTPS URL for this provider icon. Empty uses the built-in default.</description>
+    </key>
+    <key name="allow-unofficial-sources" type="b">
+      <default>false</default>
+      <summary>Allow unofficial sources</summary>
+      <description>Allow this provider to read a local CLI session and call an unofficial usage endpoint. Off by default.</description>
+    </key>
+  </schema>
+</schemalist>

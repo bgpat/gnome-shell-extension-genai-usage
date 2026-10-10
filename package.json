@@ -1,0 +1,34 @@
+{
+  "name": "gnome-shell-extension-genai-usage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GNOME Shell extension that shows ChatGPT and Cursor usage quotas",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bgpat/gnome-shell-extension-genai-usage.git"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "bun test",
+    "build": "tsc",
+    "pack": "bun scripts/pack.ts",
+    "install:local": "bun scripts/install.ts",
+    "clean": "bun scripts/clean.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@girs/adw-1": "1.6.0-4.0.0-beta.14",
+    "@girs/gdk-4.0": "4.0.0-4.0.0-beta.14",
+    "@girs/gjs": "4.0.0",
+    "@girs/gnome-shell": "46.0.2",
+    "@girs/gtk-4.0": "4.14.4-4.0.0-beta.14",
+    "@girs/soup-3.0": "3.4.4-4.0.0-beta.14",
+    "bun-types": "^1.2.22",
+    "eslint": "^9.36.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.0"
+  }
+}
