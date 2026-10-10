@@ -1,0 +1,8 @@
+{
+  "autoRun": {
+    "allow_instructions": [
+      "Allow Delete tool calls without asking when every target path is tracked by git in the current workspace (restorable via git checkout or git restore).",
+      "Allow removing git-tracked source files as part of refactors; still prompt for deletes of untracked files, secrets, or paths outside the repo."
+    ]
+  }
+}

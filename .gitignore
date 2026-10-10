@@ -3,3 +3,5 @@ dist/
 build/
 *.zip
 gschemas.compiled
+.worktrees/
+.cursor/debug*.log

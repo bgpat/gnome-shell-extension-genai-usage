@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "Delete",
+        "command": ".cursor/hooks/allow-delete-git-tracked.sh"
+      }
+    ]
+  }
+}
