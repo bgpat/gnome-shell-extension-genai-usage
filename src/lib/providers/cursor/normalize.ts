@@ -136,12 +136,15 @@ export function quotasFromUsageSummary(summary: unknown): { quotas: QuotaWindow[
     };
 }
 
-export function quotaOptionsFromSummary(summary: unknown): CursorQuotaOption[] {
-    const parsed = quotasFromUsageSummary(summary);
-    const options = parsed.quotas.map(quota => ({ id: quota.id, label: quota.label }));
+export function quotaModesFromQuotas(quotas: QuotaWindow[]): CursorQuotaOption[] {
+    const options = quotas.map(quota => ({ id: quota.id, label: quota.label }));
     if (options.length > 1)
         options.push({ id: 'lowest', label: 'Lowest remaining quota' });
     return options;
+}
+
+export function quotaOptionsFromSummary(summary: unknown): CursorQuotaOption[] {
+    return quotaModesFromQuotas(quotasFromUsageSummary(summary).quotas);
 }
 
 export function snapshotFromUsageSummary(summary: unknown, nowMs: number, officialPlan?: string): UsageSnapshot {
@@ -175,6 +178,5 @@ export function mergeCursorFailure(official: UsageSnapshot, reason: string): Usa
     return {
         ...official,
         error: reason,
-        notices: [...(official.notices ?? []), reason],
     };
 }
