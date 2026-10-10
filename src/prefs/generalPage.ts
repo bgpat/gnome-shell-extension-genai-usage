@@ -6,12 +6,11 @@ import { REFRESH_CHOICES, type ExtensionSettings } from '../gjs/settings.js';
 import { appendLog } from '../gjs/log.js';
 import { clearIconCache } from '../gjs/iconCache.js';
 import { prepareComboRow, refreshComboRowSubtitle } from './comboRow.js';
-import { PREFS_GENERAL_ICON, PREFS_GENERAL_NAME } from './pageIcons.js';
-import { newPreferencesTab } from './preferencesTab.js';
+import { newGeneralTab } from './preferencesTab.js';
 import { TopBarEditor } from './topBarEditor.js';
 
 export function createGeneralPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = newPreferencesTab('General', PREFS_GENERAL_NAME, PREFS_GENERAL_ICON);
+    const page = newGeneralTab();
 
     const layoutGroup = new Adw.PreferencesGroup({
         title: 'Top bar',

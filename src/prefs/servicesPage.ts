@@ -10,8 +10,7 @@ import { refreshProvider } from '../gjs/providers/registry.js';
 import { shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
-import { PREFS_SERVICES_ICON, PREFS_SERVICES_NAME } from './pageIcons.js';
-import { newPreferencesTab } from './preferencesTab.js';
+import { newServicesTab } from './preferencesTab.js';
 
 interface ProviderColumn {
     entry: ProviderCatalogEntry;
@@ -28,7 +27,7 @@ interface ProviderColumn {
 }
 
 export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
-    const page = newPreferencesTab('Services', PREFS_SERVICES_NAME, PREFS_SERVICES_ICON);
+    const page = newServicesTab();
     const cancellable = new Gio.Cancellable();
     const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
     const group = new Adw.PreferencesGroup({
