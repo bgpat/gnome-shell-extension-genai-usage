@@ -18,4 +18,12 @@ const enabled = spawnSync('gnome-extensions', ['enable', 'genai-usage@bgpat.gith
     cwd: root,
     stdio: 'inherit',
 });
-process.exit(enabled.status ?? 1);
+if (enabled.status === 0)
+    process.exit(0);
+
+console.error(
+    'Install finished, but enable failed because GNOME Shell has not registered the extension yet.',
+);
+console.error('On X11: Alt+F2, type r, press Enter to restart the shell.');
+console.error('Then run: gnome-extensions enable genai-usage@bgpat.github.io');
+process.exit(0);
