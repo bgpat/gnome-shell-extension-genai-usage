@@ -10,7 +10,10 @@ export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-$(mktemp -d)}
 export UUID=$uuid
 
 # Fedora containers and some CI images need a writable X11 socket directory for XWayland.
-install -d -m 1777 /tmp/.X11-unix
+# Skip if it already exists: re-running install -m on ubuntu-26+ fails (chmod not permitted).
+if [ ! -d /tmp/.X11-unix ]; then
+  install -d -m 1777 /tmp/.X11-unix
+fi
 
 cd "$root"
 bun run pack
