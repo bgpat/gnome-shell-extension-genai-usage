@@ -27,7 +27,7 @@ Workflow `uses` dependencies are pinned with [gh-actions-lock](https://github.co
 
 `.github/workflows/test-multi-versions.yml` (pull requests only):
 
-3. A Fedora matrix for Shell 45–48 (`fedora:39` through `fedora:42`) runs `tests/integration/smoke.sh` in each container. It is allowed to fail. Versions are added to `metadata.json` only after a run actually loads the extension.
+3. `test-multi-versions.yml` runs headless `tests/integration/smoke.sh` on `ubuntu-24.04` (GNOME Shell 46) and `tests/integration/fedora-compat.sh` in Fedora 39–42 containers (packaging, unit tests, schema compile, GJS subprocess — no headless Shell in containers). A `report` job named **Shell versions** aggregates both. Versions are added to `metadata.json` only after the Ubuntu smoke run loads the extension.
 
 `shell-version` currently lists 45 and 46.
 
