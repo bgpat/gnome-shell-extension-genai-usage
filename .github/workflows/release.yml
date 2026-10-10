@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Release
 
 on:
@@ -12,7 +14,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - name: Install tools
         run: sudo apt-get update
@@ -24,6 +26,11 @@ jobs:
         run: bun test
       - name: Package
         run: bun run pack
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: genai-usage@bgpat.github.io.zip
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            genai-usage@bgpat.github.io.zip
