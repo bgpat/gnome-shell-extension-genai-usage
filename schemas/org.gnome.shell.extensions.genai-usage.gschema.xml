@@ -21,6 +21,11 @@
       <summary>Refresh interval</summary>
       <description>Minutes between automatic refreshes. The preferences window offers 1, 5, 15, and 30.</description>
     </key>
+    <key name="show-provider-names" type="b">
+      <default>true</default>
+      <summary>Show provider names</summary>
+      <description>Whether the top bar shows the service name next to each icon.</description>
+    </key>
     <key name="unavailable-display" type="s">
       <choices>
         <choice value="hide"/>
@@ -43,7 +48,23 @@
     <key name="use-web-icons" type="b">
       <default>true</default>
       <summary>Download icons</summary>
-      <description>Download provider icons over HTTPS. When off, theme icons and the bundled fallbacks are used.</description>
+      <description>Download provider icons over HTTPS. Icons appear only after a successful download.</description>
+    </key>
+    <key name="icon-cache-token" type="u">
+      <default>0</default>
+      <summary>Icon cache token</summary>
+      <description>Incremented when the icon cache is cleared so GNOME Shell and preferences reload icons.</description>
+    </key>
+    <key name="log-level" type="s">
+      <choices>
+        <choice value="debug"/>
+        <choice value="info"/>
+        <choice value="warn"/>
+        <choice value="error"/>
+      </choices>
+      <default>'error'</default>
+      <summary>Log level</summary>
+      <description>Minimum severity stored in the Log tab. Lower levels are discarded and are not backfilled when you lower this setting.</description>
     </key>
   </schema>
 
