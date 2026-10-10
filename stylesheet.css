@@ -108,3 +108,19 @@
     min-width: 100%;
 }
 
+.genai-services-matrix {
+    margin-top: 4px;
+}
+
+.genai-services-matrix-row-label {
+    padding-right: 8px;
+}
+
+.genai-services-matrix-header {
+    min-width: 0;
+}
+
+.genai-services-matrix-header-note {
+    font-size: 0.85em;
+}
+
