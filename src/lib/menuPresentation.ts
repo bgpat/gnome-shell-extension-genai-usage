@@ -1,5 +1,4 @@
 import { formatLastRefresh, formatResetCountdown } from './format.js';
-import type { QuotaWindow } from './model.js';
 
 /** Matches `.genai-usage-section` horizontal margins (12px each side). */
 export const MENU_SECTION_HORIZONTAL_MARGIN = 24;
