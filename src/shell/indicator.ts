@@ -1,16 +1,16 @@
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import { barEntries } from '../lib/presentation.js';
-import { effectiveIconUrl } from '../lib/icons.js';
+import { barEntries, barItemLabel } from '../lib/presentation.js';
 import { visibleIds } from '../lib/layout.js';
-import { catalogEntry } from '../lib/providers/catalog.js';
-import { cachedIconFile } from '../gjs/iconCache.js';
+import { appendLog } from '../gjs/log.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { Countdown } from './countdown.js';
+import { attachProviderStIcon } from './providerIconView.js';
 import { fillProviderSection, tickResetLabels, type ResetLabel } from './providerSection.js';
 import type { RefreshScheduler } from './refreshScheduler.js';
 
@@ -27,6 +27,7 @@ export class UsageIndicator {
     private readonly cancellable = new Gio.Cancellable();
     private resetLabels: ResetLabel[] = [];
     private icons = new Map<string, St.Icon>();
+    private iconGeneration = 0;
 
     constructor(
         private readonly host: Host,
@@ -34,14 +35,23 @@ export class UsageIndicator {
         private readonly scheduler: RefreshScheduler,
     ) {
         this.button = new PanelMenu.Button(0.5, 'GenAI Usage', false);
-        this.box = new St.BoxLayout({ style_class: 'genai-usage-panel' });
+        this.button.add_style_class_name('genai-usage-panel-button');
+        this.button.clip_to_allocation = false;
+        this.box = new St.BoxLayout({
+            style_class: 'genai-usage-panel',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this.box.clip_to_allocation = false;
         this.button.add_child(this.box);
         this.countdown = new Countdown(() => tickResetLabels(this.resetLabels, Date.now()));
         this.menuHandler = this.menu.connect('open-state-changed', (...args: unknown[]) => {
-            if (args[1])
+            if (args[1]) {
+                appendLog('debug', 'Top bar menu opened.', 'user');
                 this.countdown.start();
-            else
+            } else {
+                appendLog('debug', 'Top bar menu closed.', 'user');
                 this.countdown.stop();
+            }
         });
     }
 
@@ -55,27 +65,44 @@ export class UsageIndicator {
             id => this.settings.topBarQuota(id),
             this.settings.unavailableDisplay,
         );
+        this.iconGeneration += 1;
+        const generation = this.iconGeneration;
         this.box.remove_all_children();
         this.icons = new Map();
-        if (entries.length === 0) {
-            const icon = new St.Icon({ icon_size: 16, style_class: 'system-status-icon' });
-            this.setGicon(icon, this.fallbackIcon('generic-symbolic.svg'));
-            this.box.add_child(icon);
-        }
         for (const entry of entries) {
-            const item = new St.BoxLayout({ style_class: 'genai-usage-item' });
-            const icon = new St.Icon({ icon_size: 16, style_class: 'system-status-icon' });
-            this.applyIcon(entry.providerId, icon);
-            item.add_child(icon);
-            if (entry.text)
-                item.add_child(new St.Label({ text: entry.text, style_class: 'genai-usage-percent' }));
+            const item = new St.BoxLayout({
+                style_class: 'genai-usage-item',
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            item.clip_to_allocation = false;
+            attachProviderStIcon(
+                item,
+                0,
+                entry.providerId,
+                this.settings,
+                this.cancellable,
+                () => generation === this.iconGeneration,
+                this.icons,
+            );
+            const label = barItemLabel(entry, this.settings.showProviderNames);
+            if (label) {
+                item.add_child(new St.Label({
+                    text: label,
+                    style_class: 'genai-usage-bar-label',
+                    y_align: Clutter.ActorAlign.CENTER,
+                }));
+            }
             this.box.add_child(item);
-            this.icons.set(entry.providerId, icon);
         }
         this.button.accessible_name = entries.length > 0
             ? entries.map(entry => entry.accessible).join(', ')
             : 'GenAI Usage';
-        this.rebuildMenu(enabled);
+        appendLog(
+            'debug',
+            `Top bar updated (${entries.length} visible ${entries.length === 1 ? 'entry' : 'entries'}).`,
+            'background',
+        );
+        this.rebuildMenu(enabled, generation);
     }
 
     destroy(): void {
@@ -88,7 +115,7 @@ export class UsageIndicator {
         this.resetLabels = [];
     }
 
-    private rebuildMenu(enabled: Set<string>): void {
+    private rebuildMenu(enabled: Set<string>, generation: number): void {
         this.menu.removeAll();
         this.resetLabels = [];
         const now = Date.now();
@@ -103,11 +130,14 @@ export class UsageIndicator {
             const view = this.scheduler.view(id);
             const labels = fillProviderSection(
                 section,
+                id,
                 view.snapshot,
-                view.error,
                 this.settings.showPlan(id),
                 this.settings.showBilling(id),
                 now,
+                this.settings,
+                this.cancellable,
+                () => generation === this.iconGeneration,
             );
             this.resetLabels.push(...labels);
             this.menu.addMenuItem(section);
@@ -115,10 +145,13 @@ export class UsageIndicator {
         if (!first)
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.addAction('Refresh', () => {
+            appendLog('info', 'Top bar menu: Refresh chosen.', 'user');
             void this.scheduler.refreshAll(true);
         });
-        this.addAction('Clear errors', () => this.scheduler.clearErrors());
-        this.addAction('Preferences', () => this.host.openPreferences());
+        this.addAction('Preferences', () => {
+            appendLog('info', 'Top bar menu: Preferences chosen.', 'user');
+            this.host.openPreferences();
+        });
     }
 
     private addAction(label: string, callback: () => void): void {
@@ -139,44 +172,5 @@ export class UsageIndicator {
             removeAll(): void;
             addMenuItem(item: unknown): void;
         };
-    }
-
-    private setGicon(icon: St.Icon, gicon: Gio.Icon): void {
-        (icon as unknown as { gicon: Gio.Icon }).gicon = gicon;
-    }
-
-    private applyIcon(id: string, icon: St.Icon): void {
-        const entry = catalogEntry(id);
-        if (!entry) {
-            this.setGicon(icon, this.fallbackIcon('generic-symbolic.svg'));
-            return;
-        }
-        this.setGicon(icon, this.fallbackIcon(entry.fallbackIcon));
-        if (this.themeHasIcon(entry.themeIconName))
-            icon.icon_name = entry.themeIconName;
-        const url = effectiveIconUrl(entry.defaultIconUrl, this.settings.iconUrl(id));
-        if (!this.settings.useWebIcons || !url)
-            return;
-        void cachedIconFile(id, url, true, this.cancellable).then(file => {
-            if (!file || this.cancellable.is_cancelled() || this.icons.get(id) !== icon)
-                return;
-            this.setGicon(icon, Gio.FileIcon.new(file) as unknown as Gio.Icon);
-            icon.icon_name = '';
-        }).catch(() => {
-            // The fallback icon stays in place.
-        });
-    }
-
-    private themeHasIcon(name: string): boolean {
-        try {
-            const theme = new St.IconTheme();
-            return theme.has_icon(name);
-        } catch {
-            return false;
-        }
-    }
-
-    private fallbackIcon(name: string): Gio.Icon {
-        return Gio.FileIcon.new(this.host.dir.get_child('icons').get_child(name)) as unknown as Gio.Icon;
     }
 }
