@@ -35,7 +35,7 @@ function ensureProxy(): Gio.DBusProxy | null {
         return null;
     }
     if (signalId === 0) {
-        signalId = proxy.connect('g-signal', (_p, sender, name, params) => {
+        signalId = proxy.connect('g-signal', (_p, sender, name, _params) => {
             if (sender !== LOG_BUS_NAME || name !== 'Changed')
                 return;
             notify();
