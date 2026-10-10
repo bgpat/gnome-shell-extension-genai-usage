@@ -52,7 +52,7 @@ bun run install:local
 bun run clean
 ```
 
-`bun run pack` writes `genai-usage@bgpat.github.io.zip`. The zip contains compiled JavaScript, `metadata.json`, the GSettings schema, the stylesheet, and the fallback icons. It does not contain TypeScript, Bun, or `node_modules`.
+`bun run pack` writes `genai-usage@bgpat.github.io.zip`. The zip contains compiled JavaScript, `metadata.json`, the GSettings schema, and the stylesheet. It does not contain TypeScript, Bun, or `node_modules`.
 
 More detail is in [docs/development.md](docs/development.md), [docs/testing.md](docs/testing.md), [docs/troubleshooting.md](docs/troubleshooting.md), and [docs/release.md](docs/release.md).
 
