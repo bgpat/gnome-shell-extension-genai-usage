@@ -1,8 +1,11 @@
 import Gio from 'gi://Gio';
 
-import { DEFAULT_LAYOUT, normalizeLayout, type LayoutState } from '../lib/layout.js';
+import { normalizeLayout, type LayoutState } from '../lib/layout.js';
+import { type LogLevel, parseLogLevel } from '../lib/logLevel.js';
+import { publicError } from '../lib/model.js';
 import { KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
 import type { CachedDataMode, UnavailableDisplay } from '../lib/presentation.js';
+import { appendLog, syncMinLogLevelFromSettings } from './log.js';
 
 export const MAIN_SCHEMA = 'org.gnome.shell.extensions.genai-usage';
 export const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.genai-usage.provider';
@@ -17,6 +20,7 @@ function providerPath(id: string): string {
 }
 
 export class ExtensionSettings {
+    readonly extensionDir: Gio.File;
     readonly main: Gio.Settings;
     private readonly source: Gio.SettingsSchemaSource;
     private readonly providers = new Map<string, Gio.Settings>();
@@ -24,6 +28,7 @@ export class ExtensionSettings {
     private onChanged: (() => void) | null = null;
 
     constructor(dir: Gio.File) {
+        this.extensionDir = dir;
         const schemas = dir.get_child('schemas');
         const path = schemas.get_path();
         if (!path)
@@ -52,21 +57,30 @@ export class ExtensionSettings {
             return existing;
         const settings = this.open(PROVIDER_SCHEMA, providerPath(id));
         this.providers.set(id, settings);
-        if (this.onChanged) {
-            const handler = settings.connect('changed', () => this.onChanged?.());
-            this.bindings.push({ settings, id: handler });
-        }
         return settings;
     }
 
-    watch(callback: () => void): void {
+    watch(callback: () => void, logOrigin?: 'shell' | 'prefs'): void {
         this.onChanged = callback;
-        const handler = this.main.connect('changed', () => this.onChanged?.());
-        this.bindings.push({ settings: this.main, id: handler });
-        for (const settings of this.providers.values()) {
-            const id = settings.connect('changed', () => this.onChanged?.());
-            this.bindings.push({ settings, id });
-        }
+        this.bindChanged(this.main, 'main', logOrigin);
+        for (const id of KNOWN_PROVIDER_IDS)
+            this.bindChanged(this.provider(id), `provider/${id}`, logOrigin);
+    }
+
+    private bindChanged(settings: Gio.Settings, scope: string, logOrigin?: 'shell' | 'prefs'): void {
+        const handler = settings.connect('changed', (_source, key: string) => {
+            if (scope === 'main' && key === 'log-level')
+                syncMinLogLevelFromSettings(this);
+            if (logOrigin !== undefined) {
+                appendLog(
+                    'info',
+                    `[${logOrigin}] Setting changed: ${scope}/${key}=${formatSettingValue(settings, key)}`,
+                    'user',
+                );
+            }
+            this.onChanged?.();
+        });
+        this.bindings.push({ settings, id: handler });
     }
 
     destroy(): void {
@@ -91,6 +105,10 @@ export class ExtensionSettings {
             this.main.set_uint('refresh-interval', minutes);
     }
 
+    get showProviderNames(): boolean {
+        return this.main.get_boolean('show-provider-names');
+    }
+
     get unavailableDisplay(): UnavailableDisplay {
         const value = this.main.get_string('unavailable-display');
         if (value === 'hide' || value === 'icon-only' || value === 'placeholder')
@@ -106,6 +124,10 @@ export class ExtensionSettings {
         return this.main.get_boolean('use-web-icons');
     }
 
+    get logLevel(): LogLevel {
+        return parseLogLevel(this.main.get_string('log-level'));
+    }
+
     layout(): LayoutState {
         return normalizeLayout(
             this.main.get_strv('provider-order'),
@@ -118,10 +140,6 @@ export class ExtensionSettings {
         const normalized = normalizeLayout(state.order, state.hidden, KNOWN_PROVIDER_IDS);
         this.main.set_strv('provider-order', normalized.order);
         this.main.set_strv('hidden-providers', normalized.hidden);
-    }
-
-    resetLayout(): void {
-        this.setLayout(DEFAULT_LAYOUT);
     }
 
     enabled(id: string): boolean {
@@ -161,6 +179,7 @@ export class ExtensionSettings {
     }
 
     resetAll(): void {
+        appendLog('info', 'All settings reset to defaults.', 'user');
         for (const key of this.main.list_keys())
             this.main.reset(key);
         for (const id of KNOWN_PROVIDER_IDS) {
@@ -169,4 +188,11 @@ export class ExtensionSettings {
                 settings.reset(key);
         }
     }
+}
+
+function formatSettingValue(settings: Gio.Settings, key: string): string {
+    let text = settings.get_value(key).print(false);
+    if (text.length > 120)
+        text = `${text.slice(0, 117)}...`;
+    return publicError(text);
 }
