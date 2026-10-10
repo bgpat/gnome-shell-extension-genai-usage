@@ -13,6 +13,7 @@
 - PR には `gh pr create` を使い、**タイトル・本文（Summary / Test plan など）は英語**で書く。本文は HEREDOC / `--body-file` で渡す（改行の `\n` 埋め込みを避ける）。
 - ユーザーが明示的に main への直接 commit / push を依頼した場合のみ例外。
 - **作業のゴールはマージ可能な状態まで**とする。変更を入れたら **`origin/main` を取り込みコンフリクト解消**、`bun run typecheck` と `bun test` を通し、push 後 **`gh pr checks` で CI が green** になるまで続ける（必須チェック **`Shell versions`** を含む）。ローカルだけ直して PR を放置しない。
+- **一時的なファイルはコミットしない**（調査用スクリプト、再現用ワンオフ、デバッグ出力の取り込みなど）。リポジトリに残す価値があるものだけ `git add` する。
 
 ## GitHub Actions
 

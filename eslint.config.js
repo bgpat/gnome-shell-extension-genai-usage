@@ -10,7 +10,6 @@ export default tseslint.config(
             '**/*.zip',
             'tests/gjs/**',
             'scripts/prefs-dev-entry.js',
-            'scripts/verify-prefs-tab-icons.js',
         ],
     },
     eslint.configs.recommended,
