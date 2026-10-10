@@ -3,10 +3,13 @@ import GLib from 'gi://GLib';
 
 import { encodeMessage, JsonRpcCollector } from '../lib/jsonrpc.js';
 import { publicError } from '../lib/model.js';
+import { appendLog } from './log.js';
 
 const tracked = new Set<Gio.Subprocess>();
 
 export function terminateCodexProcesses(): void {
+    if (tracked.size > 0)
+        appendLog('debug', `Terminating ${tracked.size} Codex app-server process(es).`, 'background');
     for (const proc of tracked) {
         try {
             proc.force_exit();
@@ -81,6 +84,7 @@ export async function queryCodex(
     cancellable: Gio.Cancellable,
     timeoutSec: number,
 ): Promise<CodexAccountRead> {
+    appendLog('info', `Codex app-server starting: ${publicError(executable)}`, 'background');
     const proc = Gio.Subprocess.new(
         [executable, 'app-server'],
         Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
@@ -130,6 +134,7 @@ export async function queryCodex(
         if (timedOut)
             throw new Error('Codex app-server timed out');
         collector.result(initId);
+        appendLog('debug', 'Codex app-server initialize complete.', 'background');
 
         await writeAll(stdin, encodeMessage({ method: 'initialized', params: {} }), cancellable);
         await writeAll(stdin, encodeMessage({
@@ -146,14 +151,17 @@ export async function queryCodex(
         if (timedOut)
             throw new Error('Codex app-server timed out');
 
+        appendLog('info', 'Codex app-server account and rate limits read.', 'background');
         return {
             account: collector.result(accountId),
             limits: collector.result(limitsId),
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        appendLog('error', `Codex app-server failed: ${publicError(message)}`, 'background');
         throw new Error(publicError(message));
     } finally {
+        appendLog('debug', 'Codex app-server shutting down.', 'background');
         if (timeoutId !== 0)
             GLib.source_remove(timeoutId);
         try {
