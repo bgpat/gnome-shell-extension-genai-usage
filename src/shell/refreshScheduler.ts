@@ -24,10 +24,24 @@ export class RefreshScheduler {
 
     constructor(private readonly settings: ExtensionSettings) {}
 
+    private logRefreshAllFailure(error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error);
+        appendLog('error', `Refresh all failed: ${message}`, 'background');
+    }
+
+    /** Fire-and-forget refresh; failures are logged, not propagated. */
+    refreshAllAsync(force: boolean): void {
+        void this.refreshAll(force).catch(error => this.logRefreshAllFailure(error));
+    }
+
+    private scheduleRefreshAll(force: boolean): void {
+        this.refreshAllAsync(force);
+    }
+
     start(): void {
         this.cancellable = new Gio.Cancellable();
         appendLog('info', 'Refresh scheduler started.', 'background');
-        void this.refreshAll(true);
+        this.scheduleRefreshAll(true);
         this.arm();
     }
 
@@ -51,7 +65,7 @@ export class RefreshScheduler {
     /** Re-arm the timer and fetch fresh provider data (Shell is the single source of truth). */
     onSettingsChanged(): void {
         this.restart();
-        void this.refreshAll(true);
+        this.scheduleRefreshAll(true);
     }
 
     view(id: string): ProviderView {
@@ -68,15 +82,32 @@ export class RefreshScheduler {
     }
 
     async refreshAll(force: boolean): Promise<void> {
-        const enabled = [...this.settings.enabledSet()];
-        appendLog(
-            'info',
-            `Refresh all: force=${force}, providers=[${enabled.join(', ')}]`,
-            force ? 'user' : 'background',
-        );
-        await Promise.all(enabled.map(id => this.refreshOne(id, force)));
-        appendLog('debug', 'Refresh all finished.', 'background');
-        this.onChange?.();
+        try {
+            const enabled = [...this.settings.enabledSet()];
+            appendLog(
+                'info',
+                `Refresh all: force=${force}, providers=[${enabled.join(', ')}]`,
+                force ? 'user' : 'background',
+            );
+            await Promise.all(enabled.map(async id => {
+                try {
+                    await this.refreshOne(id, force);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    appendLog('error', `${id} refresh failed: ${message}`, 'background');
+                }
+            }));
+        } catch (error) {
+            this.logRefreshAllFailure(error);
+        } finally {
+            appendLog('debug', 'Refresh all finished.', 'background');
+            try {
+                this.onChange?.();
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                appendLog('error', `Refresh UI update failed: ${message}`, 'background');
+            }
+        }
     }
 
     async refreshOne(id: string, force: boolean): Promise<void> {
@@ -154,7 +185,7 @@ export class RefreshScheduler {
             minutes * 60,
             () => {
                 appendLog('debug', 'Automatic refresh timer fired.', 'background');
-                void this.refreshAll(false);
+                this.scheduleRefreshAll(false);
                 return GLib.SOURCE_CONTINUE;
             },
         );
