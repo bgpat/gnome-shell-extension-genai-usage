@@ -4,6 +4,14 @@ export function formatRemaining(percent: number | undefined): string | undefined
     return `${Math.round(percent)}%`;
 }
 
+export function usedPercent(used?: number, remaining?: number): number | undefined {
+    if (used !== undefined && Number.isFinite(used))
+        return Math.min(100, Math.max(0, used));
+    if (remaining !== undefined && Number.isFinite(remaining))
+        return Math.min(100, Math.max(0, 100 - remaining));
+    return undefined;
+}
+
 export function formatResetCountdown(resetsAtSec: number | undefined, nowMs: number): string | undefined {
     if (resetsAtSec === undefined || !Number.isFinite(resetsAtSec))
         return undefined;

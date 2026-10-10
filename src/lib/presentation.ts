@@ -1,10 +1,19 @@
-import { formatRemaining } from './format.js';
-import type { UsageSnapshot } from './model.js';
+import { formatRemaining, usedPercent } from './format.js';
+import type { QuotaWindow, UsageSnapshot } from './model.js';
 import { catalogEntry } from './providers/catalog.js';
 import { selectQuota } from './quota.js';
 
 export type UnavailableDisplay = 'hide' | 'placeholder' | 'icon-only';
 export type CachedDataMode = 'show' | 'hide';
+export type QuotaPercentMode = 'remaining' | 'used';
+
+export function quotaBarText(quota: QuotaWindow | undefined, mode: QuotaPercentMode): string | undefined {
+    if (!quota)
+        return undefined;
+    if (mode === 'used')
+        return formatRemaining(usedPercent(quota.usedPercent, quota.remainingPercent));
+    return formatRemaining(quota.remainingPercent);
+}
 
 export interface BarEntry {
     providerId: string;
@@ -24,6 +33,7 @@ export function barEntries(
     snapshots: ReadonlyMap<string, UsageSnapshot>,
     quotaMode: (id: string) => string,
     unavailable: UnavailableDisplay,
+    percentMode: QuotaPercentMode = 'remaining',
 ): BarEntry[] {
     const entries: BarEntry[] = [];
     for (const id of ids) {
@@ -32,7 +42,7 @@ export function barEntries(
         const quota = snapshot?.availability.state === 'available'
             ? selectQuota(snapshot.quotas, quotaMode(id))
             : undefined;
-        const text = formatRemaining(quota?.remainingPercent);
+        const text = quotaBarText(quota, percentMode);
         if (text) {
             entries.push({ providerId: id, displayName: name, text, accessible: `${name} ${text}` });
             continue;

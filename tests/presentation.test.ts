@@ -29,6 +29,17 @@ describe('top bar presentation', () => {
         }]);
     });
 
+    test('can show used quota instead of remaining', () => {
+        const entries = barEntries(
+            ['chatgpt'],
+            new Map([['chatgpt', snapshot(76)]]),
+            () => 'five-hour',
+            'placeholder',
+            'used',
+        );
+        expect(entries[0]?.text).toBe('24%');
+    });
+
     test('can hide provider names in the top bar label', () => {
         const entries = barEntries(['chatgpt'], new Map([['chatgpt', snapshot(76)]]), () => 'five-hour', 'placeholder');
         const entry = entries[0]!;

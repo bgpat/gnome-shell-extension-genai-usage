@@ -26,6 +26,15 @@
       <summary>Show provider names</summary>
       <description>Whether the top bar shows the service name next to each icon.</description>
     </key>
+    <key name="quota-percent-mode" type="s">
+      <choices>
+        <choice value="remaining"/>
+        <choice value="used"/>
+      </choices>
+      <default>'remaining'</default>
+      <summary>Quota percentage</summary>
+      <description>Whether the top bar percentage shows remaining quota or used quota.</description>
+    </key>
     <key name="unavailable-display" type="s">
       <choices>
         <choice value="hide"/>

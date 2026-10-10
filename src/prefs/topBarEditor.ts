@@ -169,6 +169,7 @@ export class TopBarEditor {
             this.snapshots,
             providerId => this.settings.topBarQuota(providerId),
             this.settings.unavailableDisplay,
+            this.settings.quotaPercentMode,
         ).find(item => item.providerId === id);
         if (!entry)
             return catalogEntry(id)?.displayName ?? id;
