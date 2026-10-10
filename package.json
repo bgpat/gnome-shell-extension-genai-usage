@@ -15,20 +15,26 @@
     "test": "bun test",
     "build": "tsc",
     "pack": "bun scripts/pack.ts",
+    "dev": "bun scripts/dev.ts",
+    "dev:prefs": "bun scripts/dev-prefs.ts",
     "install:local": "bun scripts/install.ts",
     "clean": "bun scripts/clean.ts"
   },
+  "overrides": {
+    "@girs/gio-2.0": "5.5.0",
+    "@girs/gobject-2.0": "5.5.0"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@girs/adw-1": "1.6.0-4.0.0-beta.14",
-    "@girs/gdk-4.0": "4.0.0-4.0.0-beta.14",
-    "@girs/gjs": "4.0.0",
-    "@girs/gnome-shell": "46.0.2",
-    "@girs/gtk-4.0": "4.14.4-4.0.0-beta.14",
-    "@girs/soup-3.0": "3.4.4-4.0.0-beta.14",
-    "bun-types": "^1.2.22",
-    "eslint": "^9.36.0",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.44.0"
+    "@eslint/js": "^9.39.5",
+    "@girs/adw-1": "5.5.0",
+    "@girs/gdk-4.0": "5.5.0",
+    "@girs/gjs": "5.5.0",
+    "@girs/gnome-shell": "50.0.4",
+    "@girs/gtk-4.0": "5.5.0",
+    "@girs/soup-3.0": "5.5.0",
+    "bun-types": "^1.4.3",
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1"
   }
 }
