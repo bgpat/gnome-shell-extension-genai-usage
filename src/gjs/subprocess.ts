@@ -1,6 +1,9 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { appendLog } from './log.js';
+import { publicError } from '../lib/model.js';
+
 const tracked = new Set<Gio.Subprocess>();
 
 export function terminateTrackedProcesses(): void {
@@ -41,6 +44,11 @@ export function runProcess(options: {
 
     const proc = Gio.Subprocess.new(options.argv, flags);
     track(proc);
+    appendLog(
+        'debug',
+        `Subprocess start: ${publicError(options.argv.join(' '))} (timeout ${options.timeoutSec}s)`,
+        'background',
+    );
 
     let timedOut = false;
     let timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, options.timeoutSec, () => {
@@ -70,6 +78,19 @@ export function runProcess(options: {
                 let exitCode: number | null = null;
                 if (proc.get_if_exited())
                     exitCode = proc.get_exit_status();
+                if (timedOut) {
+                    appendLog(
+                        'warn',
+                        `Subprocess timed out: ${publicError(options.argv[0] ?? 'command')}`,
+                        'background',
+                    );
+                } else {
+                    appendLog(
+                        'info',
+                        `Subprocess finished: ${publicError(options.argv[0] ?? 'command')} exit=${exitCode ?? 'signal'}`,
+                        'background',
+                    );
+                }
                 resolve({
                     stdout: stdout ?? '',
                     stderr: stderr ?? '',
@@ -78,9 +99,20 @@ export function runProcess(options: {
                 });
             } catch (error) {
                 if (timedOut) {
+                    appendLog(
+                        'warn',
+                        `Subprocess timed out: ${publicError(options.argv[0] ?? 'command')}`,
+                        'background',
+                    );
                     resolve({ stdout: '', stderr: '', exitCode: null, timedOut: true });
                     return;
                 }
+                const messageText = error instanceof Error ? error.message : String(error);
+                appendLog(
+                    'error',
+                    `Subprocess failed: ${publicError(options.argv[0] ?? 'command')}: ${publicError(messageText)}`,
+                    'background',
+                );
                 reject(error);
             }
         });
