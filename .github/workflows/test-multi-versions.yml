@@ -10,7 +10,22 @@ on:
       - reopened
 
 jobs:
-  fedora-smoke:
+  gnome-smoke:
+    name: gnome-shell smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install GNOME Shell
+        run: sudo apt-get update
+      - name: Install GNOME packages
+        run: sudo apt-get install -y gnome-shell mutter dbus-x11 libglib2.0-bin unzip zip gjs
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Headless smoke
+        run: sh tests/integration/smoke.sh
+
+  fedora-compat:
     name: fedora ${{ matrix.fedora }}
     runs-on: ubuntu-latest
     strategy:
@@ -24,24 +39,33 @@ jobs:
       - name: Install unzip for setup-bun
         run: dnf install -y unzip
       - uses: oven-sh/setup-bun@v2
-      - name: Install GNOME Shell
-        run: dnf install -y gnome-shell mutter glib2 zip gjs
+      - name: Install tools
+        run: dnf install -y glib2 zip gjs
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Headless smoke
-        run: sh tests/integration/smoke.sh
+      - name: Fedora compatibility
+        run: sh tests/integration/fedora-compat.sh
 
   report:
     name: Shell versions
-    needs: fedora-smoke
+    needs: [gnome-smoke, fedora-compat]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require all Fedora smoke jobs to pass
+      - name: Aggregate shell version checks
         env:
-          FEDORA_SMOKE_RESULT: ${{ needs.fedora-smoke.result }}
+          GNOME_SMOKE_RESULT: ${{ needs.gnome-smoke.result }}
+          FEDORA_COMPAT_RESULT: ${{ needs.fedora-compat.result }}
         run: |
-          if [ "$FEDORA_SMOKE_RESULT" != "success" ]; then
-            echo "::error::Fedora smoke matrix result: $FEDORA_SMOKE_RESULT"
+          ok=1
+          if [ "$GNOME_SMOKE_RESULT" != "success" ]; then
+            echo "::error::gnome-shell smoke result: $GNOME_SMOKE_RESULT"
+            ok=0
+          fi
+          if [ "$FEDORA_COMPAT_RESULT" != "success" ]; then
+            echo "::error::Fedora compatibility matrix result: $FEDORA_COMPAT_RESULT"
+            ok=0
+          fi
+          if [ "$ok" -eq 0 ]; then
             exit 1
           fi
