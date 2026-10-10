@@ -1,14 +1,26 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = join(import.meta.dir, '..');
-const build = join(root, 'build');
+const build = mkdtempSync(join(tmpdir(), 'genai-usage-pack-'));
 const zipName = 'genai-usage@bgpat.github.io.zip';
 const zipPath = join(root, zipName);
 
-rmSync(build, { recursive: true, force: true });
-mkdirSync(build, { recursive: true });
+function removePath(path: string, label: string): void {
+    try {
+        rmSync(path, { recursive: true, force: true });
+    } catch (err) {
+        const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+        if (code === 'EACCES') {
+            console.error(`${label} ${path} is not writable (often owned by root after Docker or sudo).`);
+            console.error(`Fix: sudo chown -R "$(whoami)" ${JSON.stringify(path)}`);
+            process.exit(1);
+        }
+        throw err;
+    }
+}
 
 const tsc = spawnSync('bun', ['x', 'tsc'], { cwd: root, stdio: 'inherit' });
 if (tsc.status !== 0)
@@ -25,7 +37,7 @@ if (compiled.status !== 0) {
     process.exit(compiled.status ?? 1);
 }
 
-rmSync(zipPath, { force: true });
+removePath(zipPath, 'Package');
 const zipped = spawnSync('zip', ['-r', zipPath, '.'], { cwd: build, encoding: 'utf8' });
 if (zipped.status !== 0) {
     console.error(zipped.stderr);
