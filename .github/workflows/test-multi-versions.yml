@@ -4,6 +4,10 @@ name: Shell versions
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
   smoke:

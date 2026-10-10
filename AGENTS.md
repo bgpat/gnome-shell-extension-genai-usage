@@ -8,6 +8,7 @@
 
 ## GitHub Actions
 
+- **CI の二重実行を避ける**: PR ブランチへの push は `pull_request`（`opened` / `synchronize` / `reopened`）だけで回す。`push` は **`main` のみ**（マージ後の確認）。PR 更新と同内容のチェックを `push` 側にも書かない。役割が違う処理は**別 YAML** に分ける（例: `ci.yml` と `test-multi-versions.yml`）。
 - **サードパーティ Action は原則使わない**（`actions/*` など GitHub 公式を優先）。
 - **例外（許容）**: `oven-sh/setup-bun`（Bun のセットアップ）。
 - それ以外でサードパーティ Action が必要なときは、追加前に**ユーザーに確認**する。可能なら runner 上のシェルや `gh` CLI で代替する。
