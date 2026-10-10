@@ -9,6 +9,9 @@ export XDG_CACHE_HOME=${XDG_CACHE_HOME:-$(mktemp -d)}
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-$(mktemp -d)}
 export UUID=$uuid
 
+# Fedora containers and some CI images need a writable X11 socket directory for XWayland.
+install -d -m 1777 /tmp/.X11-unix
+
 cd "$root"
 bun run pack
 mkdir -p "$XDG_DATA_HOME/gnome-shell/extensions"

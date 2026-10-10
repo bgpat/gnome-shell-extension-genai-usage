@@ -56,7 +56,7 @@ function iconFileForUrl(providerId: string, url: string, defaultUrl: string): Gi
         }
     }
     const cached = resolveCachedIconFile(providerId, url, defaultUrl);
-    let file = cached ?? (canonical.query_exists(null) ? canonical : undefined);
+    const file = cached ?? (canonical.query_exists(null) ? canonical : undefined);
     if (!file)
         return undefined;
     if (discardStaleIconFile(providerId, file))

@@ -40,7 +40,7 @@ gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell enabled-extensions "['${uuid}']"
 case "\${GENAI_COLOR_SCHEME:-}" in
   default|prefer-dark|prefer-light)
-    gsettings set org.gnome.desktop.interface color-scheme "\$GENAI_COLOR_SCHEME"
+    gsettings set org.gnome.desktop.interface color-scheme "$GENAI_COLOR_SCHEME"
     ;;
   '')
     ;;
