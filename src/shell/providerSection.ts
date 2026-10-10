@@ -6,15 +6,14 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { formatMoney } from '../lib/format.js';
 import {
-    MENU_QUOTA_BAR_HEIGHT,
-    menuQuotaBarSizes,
+    MENU_QUOTA_BAR_FALLBACK_WIDTH,
+    menuQuotaBarFillStyle,
     menuRefreshLabelText,
     menuResetLabelText,
     quotaMenuLineText,
     tickMenuResetLabels,
     type MenuResetLabelRow,
 } from '../lib/menuPresentation.js';
-import { runShellSafe } from '../gjs/shellSafe.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
@@ -35,12 +34,7 @@ export function fillProviderSection(
     isCurrent: () => boolean,
 ): ResetLabel[] {
     const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, can_focus: false });
-    item.x_expand = true;
-    const box = new St.BoxLayout({
-        vertical: true,
-        style_class: 'genai-usage-section',
-        x_expand: true,
-    });
+    const box = new St.BoxLayout({ vertical: true, style_class: 'genai-usage-section' });
     item.add_child(box);
     section.addMenuItem(item);
 
@@ -77,7 +71,7 @@ export function fillProviderSection(
         box.add_child(reset);
         resets.push({ label: reset, resetsAt: quota.resetsAt, kind: 'reset' });
     }
-    runShellSafe('Menu quota bar layout', () => layoutSectionQuotaBars(box, quotaBars));
+    layoutSectionQuotaBars(box, quotaBars);
 
     if (snapshot.credits) {
         const parts: string[] = [];
@@ -114,87 +108,64 @@ export function fillProviderSection(
 }
 
 interface QuotaBarWidgets {
-    row: St.BoxLayout;
     fill: St.Widget;
     displayPercent: number;
 }
 
-const quotaBarRelayouts: (() => void)[] = [];
-
-export function clearQuotaBarRelayouts(): void {
-    quotaBarRelayouts.length = 0;
-}
-
-/** Re-run fill sizing after the popup is mapped (width is wrong while the menu is closed). */
-export function relayoutOpenMenuQuotaBars(): void {
-    for (const relayout of quotaBarRelayouts)
-        runShellSafe('Menu quota bar relayout', relayout, 'user');
-}
-
-function quotaBarActorWidth(actor: St.BoxLayout | St.Widget): number {
-    const alloc = actor.get_allocation_box();
-    const fromAlloc = Math.max(0, alloc.x2 - alloc.x1);
-    return Math.max(actor.width, fromAlloc);
-}
-
-function applyQuotaBarFill(fill: St.Widget, rowWidth: number, displayPercent: number): boolean {
-    if (rowWidth <= 0)
+function applyQuotaBarFill(fill: St.Widget, sectionWidth: number, displayPercent: number): boolean {
+    const style = menuQuotaBarFillStyle(sectionWidth, displayPercent)
+        ?? menuQuotaBarFillStyle(MENU_QUOTA_BAR_FALLBACK_WIDTH, displayPercent);
+    if (!style)
         return false;
-    const { fillWidth, height } = menuQuotaBarSizes(rowWidth, displayPercent);
-    fill.set_size(fillWidth, height);
-    return true;
+    fill.set_style(style);
+    return sectionWidth > 0;
 }
 
 function appendQuotaBar(box: St.BoxLayout, displayPercent: number): QuotaBarWidgets {
-    const row = new St.BoxLayout({
-        vertical: false,
+    const track = new St.Widget({
         style_class: 'quota-track',
         reactive: false,
         x_expand: true,
     });
+    track.clip_to_allocation = true;
     const fill = new St.Widget({
         style_class: 'quota-fill',
         reactive: false,
     });
-    const rest = new St.Widget({ reactive: false, x_expand: true });
-    row.add_child(fill);
-    row.add_child(rest);
-    box.add_child(row);
-    fill.set_size(1, MENU_QUOTA_BAR_HEIGHT);
-    return { row, fill, displayPercent };
+    track.add_child(fill);
+    box.add_child(track);
+    applyQuotaBarFill(fill, MENU_QUOTA_BAR_FALLBACK_WIDTH, displayPercent);
+    return { fill, displayPercent };
 }
 
-/** Sync fill width from the allocated row width (St ignores CSS % on fill widgets). */
+/** Size fills from the section box width once allocated (no menu-item signals). */
 function layoutSectionQuotaBars(box: St.BoxLayout, bars: QuotaBarWidgets[]): void {
     if (bars.length === 0)
         return;
 
-    let syncing = false;
-
-    const syncQuotaBarFills = () => {
-        if (syncing)
-            return;
-        syncing = true;
-        try {
-            for (const bar of bars) {
-                const rowW = quotaBarActorWidth(bar.row);
-                if (rowW <= 0)
-                    continue;
-                applyQuotaBarFill(bar.fill, rowW, bar.displayPercent);
-            }
-        } finally {
-            syncing = false;
-        }
+    let widthSignal = 0;
+    const sync = (): boolean => {
+        let synced = false;
+        for (const bar of bars)
+            synced = applyQuotaBarFill(bar.fill, box.width, bar.displayPercent) || synced;
+        return synced;
     };
 
-    const scheduleSync = () => runShellSafe('Menu quota bar sync', syncQuotaBarFills);
+    const finishWidthWatch = () => {
+        if (widthSignal === 0)
+            return;
+        box.disconnect(widthSignal);
+        widthSignal = 0;
+    };
 
-    quotaBarRelayouts.push(syncQuotaBarFills);
+    const syncAndMaybeStop = () => {
+        if (sync())
+            finishWidthWatch();
+    };
 
-    for (const bar of bars)
-        bar.row.connect('notify::allocation', scheduleSync);
+    widthSignal = box.connect('notify::width', syncAndMaybeStop);
     GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-        scheduleSync();
+        syncAndMaybeStop();
         return GLib.SOURCE_REMOVE;
     });
 }

@@ -43,7 +43,6 @@
 .genai-usage-section {
     spacing: 6px;
     margin: 8px 12px;
-    width: 100%;
 }
 
 .genai-usage-section-header {
@@ -64,7 +63,7 @@
 }
 
 .quota-track {
-    width: 100%;
+    min-width: 240px;
     height: 6px;
     background-color: alpha(currentColor, 0.18);
     border-radius: 3px;

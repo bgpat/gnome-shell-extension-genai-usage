@@ -1,6 +1,5 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -14,13 +13,7 @@ import { runShellSafe, shellErrorText } from '../gjs/shellSafe.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { Countdown } from './countdown.js';
 import { attachProviderStIcon } from './providerIconView.js';
-import {
-    clearQuotaBarRelayouts,
-    fillProviderSection,
-    relayoutOpenMenuQuotaBars,
-    tickResetLabels,
-    type ResetLabel,
-} from './providerSection.js';
+import { fillProviderSection, tickResetLabels, type ResetLabel } from './providerSection.js';
 import type { RefreshScheduler } from './refreshScheduler.js';
 
 interface Host {
@@ -63,14 +56,6 @@ export class UsageIndicator {
                 this.menuIsOpen = isOpen;
                 if (isOpen) {
                     appendLog('debug', 'Top bar menu opened.', 'user');
-                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                        runShellSafe('Menu quota bar idle relayout', () => relayoutOpenMenuQuotaBars(), 'user');
-                        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                            runShellSafe('Menu quota bar idle relayout', () => relayoutOpenMenuQuotaBars(), 'user');
-                            return GLib.SOURCE_REMOVE;
-                        });
-                        return GLib.SOURCE_REMOVE;
-                    });
                     this.countdown.start();
                 } else {
                     appendLog('debug', 'Top bar menu closed.', 'user');
@@ -154,7 +139,6 @@ export class UsageIndicator {
     }
 
     private rebuildMenu(enabled: Set<string>, generation: number): void {
-        clearQuotaBarRelayouts();
         this.menu.removeAll();
         this.resetLabels = [];
         const now = Date.now();
