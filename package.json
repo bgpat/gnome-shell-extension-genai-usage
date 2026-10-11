@@ -18,7 +18,8 @@
     "dev": "bun scripts/dev.ts",
     "dev:prefs": "bun scripts/dev-prefs.ts",
     "install:local": "bun scripts/install.ts",
-    "clean": "bun scripts/clean.ts"
+    "clean": "bun scripts/clean.ts",
+    "publish:ego": "bun scripts/publish-ego.ts"
   },
   "overrides": {
     "@girs/gio-2.0": "5.5.0",
