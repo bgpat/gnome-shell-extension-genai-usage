@@ -17,7 +17,9 @@ Releases follow the same pattern as [anchor-selector](https://github.com/bgpat/a
 
 1. Merge changes into `main`. CI runs tests and packaging.
 2. The **release** workflow updates the draft release notes, runs `bun run pack`, and attaches `genai-usage@bgpat.github.io.zip` to the draft.
-3. When the draft looks right, **Publish release** on GitHub. The **publish** workflow checks out the release tag, runs tests, packs again, and runs `bun run publish:ego` (extensions.gnome.org API upload for review).
+3. When the draft looks right, **Publish release** on GitHub with **Set as a pre-release** unchecked. The **publish** workflow runs only for full releases (not pre-releases) and uploads to extensions.gnome.org for review.
+
+   If a release was published as a pre-release by mistake, clear the flag (GitHub **Edit release** or `gh release edit TAG --prerelease=false`). That emits a `released` event and triggers EGO upload.
 
 The zip must not contain `node_modules`, TypeScript, source maps, or the docs. `bun run pack` checks the file list.
 

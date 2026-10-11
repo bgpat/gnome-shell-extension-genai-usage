@@ -17,6 +17,8 @@ jobs:
     steps:
       - id: release-drafter
         uses: release-drafter/release-drafter@v7
+        with:
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v7
