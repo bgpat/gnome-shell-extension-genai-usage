@@ -159,7 +159,7 @@ export async function queryCodex(
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         appendLog('error', `Codex app-server failed: ${publicError(message)}`, 'background');
-        throw new Error(publicError(message));
+        throw new Error(publicError(message), { cause: error });
     } finally {
         appendLog('debug', 'Codex app-server shutting down.', 'background');
         if (timeoutId !== 0)

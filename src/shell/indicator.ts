@@ -159,7 +159,6 @@ export class UsageIndicator {
         this.menu.removeAll();
         this.resetLabels = [];
         const now = Date.now();
-        let hasSections = false;
         try {
             const menuIds = menuEnabledProviderIds(this.settings.layout().order, enabled);
             let first = true;
@@ -191,7 +190,7 @@ export class UsageIndicator {
                     );
                 }
             }
-            hasSections = !first;
+            const hasSections = !first;
             if (hasSections)
                 this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         } catch (error) {
