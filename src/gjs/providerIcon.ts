@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 
 import { isLegacyColoredChatGptSvg } from '../lib/icons.js';
 import { catalogEntry, providerIconUrlCandidates } from '../lib/providers/catalog.js';
+import { readFileBytes } from './files.js';
 import { appendLog } from './log.js';
 import {
     brandedWebIconFile,
@@ -22,13 +23,18 @@ export function giconFromFile(file: Gio.File): Gio.Icon | undefined {
     }
 }
 
-function discardStaleIconFile(providerId: string, file: Gio.File): boolean {
+async function discardStaleIconFile(
+    providerId: string,
+    file: Gio.File,
+    cancellable: Gio.Cancellable,
+): Promise<boolean> {
     const basename = file.get_basename();
     if (!basename?.endsWith('.svg'))
         return false;
+    const raw = await readFileBytes(file, cancellable);
+    if (!raw)
+        return false;
     try {
-        const [, contents] = file.load_contents(null);
-        const raw = contents instanceof Uint8Array ? contents : new Uint8Array(contents as ArrayBuffer);
         const svg = new TextDecoder().decode(raw.subarray(0, Math.min(raw.length, 16_384)));
         if (providerId === 'chatgpt' && isLegacyColoredChatGptSvg(svg)) {
             file.delete(null);
@@ -41,7 +47,7 @@ function discardStaleIconFile(providerId: string, file: Gio.File): boolean {
     return false;
 }
 
-function iconFileForUrl(providerId: string, url: string, defaultUrl: string): Gio.File | undefined {
+function resolveIconFile(providerId: string, url: string, defaultUrl: string): Gio.File | undefined {
     purgeLegacyWebIconAliases(providerId);
     const canonical = brandedWebIconFile(providerId, url, defaultUrl);
     if (!canonical.query_exists(null)) {
@@ -56,13 +62,22 @@ function iconFileForUrl(providerId: string, url: string, defaultUrl: string): Gi
         }
     }
     const cached = resolveCachedIconFile(providerId, url, defaultUrl);
-    const file = cached ?? (canonical.query_exists(null) ? canonical : undefined);
+    return cached ?? (canonical.query_exists(null) ? canonical : undefined);
+}
+
+async function prepareCachedIconFile(
+    providerId: string,
+    url: string,
+    defaultUrl: string,
+    cancellable: Gio.Cancellable,
+): Promise<Gio.File | undefined> {
+    const file = resolveIconFile(providerId, url, defaultUrl);
     if (!file)
         return undefined;
-    if (discardStaleIconFile(providerId, file))
+    if (await discardStaleIconFile(providerId, file, cancellable))
         return undefined;
-    normalizeBrandedSvgIfNeeded(file);
-    normalizeBrandedPngIfNeeded(file);
+    await normalizeBrandedSvgIfNeeded(file, cancellable);
+    await normalizeBrandedPngIfNeeded(file, cancellable);
     return file;
 }
 
@@ -72,7 +87,7 @@ function iconFileForCandidates(
     defaultUrl: string,
 ): Gio.File | undefined {
     for (const url of urls) {
-        const file = iconFileForUrl(providerId, url, defaultUrl);
+        const file = resolveIconFile(providerId, url, defaultUrl);
         if (file)
             return file;
     }
@@ -129,7 +144,7 @@ async function refreshProviderIconUrls(
         const file = await cachedIconFile(providerId, url, true, cancellable, defaultUrl);
         if (!file)
             continue;
-        const resolved = iconFileForUrl(providerId, url, defaultUrl);
+        const resolved = await prepareCachedIconFile(providerId, url, defaultUrl, cancellable);
         if (!resolved)
             continue;
         return giconFromFile(resolved);

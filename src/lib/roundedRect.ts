@@ -1,33 +1,33 @@
 export function insideRoundedRect(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number,
+    posX: number,
+    posY: number,
+    rectWidth: number,
+    rectHeight: number,
+    cornerRadius: number,
 ): boolean {
-    const r = Math.min(radius, width / 2, height / 2);
-    if (r <= 0)
+    const effectiveRadius = Math.min(cornerRadius, rectWidth / 2, rectHeight / 2);
+    if (effectiveRadius <= 0)
         return true;
-    if (x >= r && x < width - r)
+    if (posX >= effectiveRadius && posX < rectWidth - effectiveRadius)
         return true;
-    if (y >= r && y < height - r)
+    if (posY >= effectiveRadius && posY < rectHeight - effectiveRadius)
         return true;
-    if (x < r && y < r) {
-        const dx = r - x - 0.5;
-        const dy = r - y - 0.5;
-        return dx * dx + dy * dy <= r * r;
+    if (posX < effectiveRadius && posY < effectiveRadius) {
+        const offsetX = effectiveRadius - posX - 0.5;
+        const offsetY = effectiveRadius - posY - 0.5;
+        return offsetX * offsetX + offsetY * offsetY <= effectiveRadius * effectiveRadius;
     }
-    if (x >= width - r && y < r) {
-        const dx = x - (width - r) + 0.5;
-        const dy = r - y - 0.5;
-        return dx * dx + dy * dy <= r * r;
+    if (posX >= rectWidth - effectiveRadius && posY < effectiveRadius) {
+        const offsetX = posX - (rectWidth - effectiveRadius) + 0.5;
+        const offsetY = effectiveRadius - posY - 0.5;
+        return offsetX * offsetX + offsetY * offsetY <= effectiveRadius * effectiveRadius;
     }
-    if (x < r && y >= height - r) {
-        const dx = r - x - 0.5;
-        const dy = y - (height - r) + 0.5;
-        return dx * dx + dy * dy <= r * r;
+    if (posX < effectiveRadius && posY >= rectHeight - effectiveRadius) {
+        const offsetX = effectiveRadius - posX - 0.5;
+        const offsetY = posY - (rectHeight - effectiveRadius) + 0.5;
+        return offsetX * offsetX + offsetY * offsetY <= effectiveRadius * effectiveRadius;
     }
-    const dx = x - (width - r) + 0.5;
-    const dy = y - (height - r) + 0.5;
-    return dx * dx + dy * dy <= r * r;
+    const offsetX = posX - (rectWidth - effectiveRadius) + 0.5;
+    const offsetY = posY - (rectHeight - effectiveRadius) + 0.5;
+    return offsetX * offsetX + offsetY * offsetY <= effectiveRadius * effectiveRadius;
 }

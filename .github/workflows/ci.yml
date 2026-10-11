@@ -33,6 +33,10 @@ jobs:
         run: bun test
       - name: Package
         run: bun run pack
+      - name: Install Shexli
+        run: pip install 'shexli==0.2.1'
+      - name: Shexli
+        run: python3 -m shexli genai-usage@bgpat.github.io.zip
       - name: Subprocess integration
         run: gjs -m tests/gjs/subprocess.js
 
