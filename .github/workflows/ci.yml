@@ -45,7 +45,7 @@ jobs:
         run: gjs -m tests/gjs/subprocess.js
 
   smoke:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
