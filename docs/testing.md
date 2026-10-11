@@ -22,7 +22,7 @@ Workflow `uses` dependencies are pinned with [gh-actions-lock](https://github.co
 
 `.github/workflows/ci.yml`:
 
-1. On every push and pull request, `ubuntu-latest` runs typecheck, lint, unit tests, packaging, and the GJS subprocess test.
+1. On every push and pull request, `ubuntu-latest` runs typecheck, lint, unit tests, packaging, [Shexli](https://pypi.org/project/shexli/) on the zip, and the GJS subprocess test.
 2. `ubuntu-26.04` installs GNOME Shell and runs `tests/integration/smoke.sh`. Ubuntu 26.04 ships GNOME Shell 50. The script enables the extension in a private D-Bus session and checks `GetExtensionInfo`.
 
 `.github/workflows/test-multi-versions.yml` (pull requests only):

@@ -10,6 +10,7 @@ import {
     prepareDownloadedIconBytes,
     shouldRetryIconHttp,
 } from '../lib/icons.js';
+import { readFileBytes } from './files.js';
 import { iconCacheRoot } from './iconCachePaths.js';
 import { httpGet } from './http.js';
 import { appendLog } from './log.js';
@@ -278,13 +279,17 @@ export function purgeLegacyWebIconAliases(providerId: string): void {
 }
 
 /** Rewrite cached SVG fills so symbolic panel icons pick up the top-bar color. */
-export function normalizeBrandedSvgIfNeeded(file: Gio.File): void {
+export async function normalizeBrandedSvgIfNeeded(
+    file: Gio.File,
+    cancellable: Gio.Cancellable | null = null,
+): Promise<void> {
     const basename = file.get_basename();
     if (!basename?.endsWith('.svg'))
         return;
+    const raw = await readFileBytes(file, cancellable);
+    if (!raw)
+        return;
     try {
-        const [, contents] = file.load_contents(null);
-        const raw = contents instanceof Uint8Array ? contents : new Uint8Array(contents as ArrayBuffer);
         const prepared = prepareDownloadedIconBytes(raw, 'image/svg+xml');
         const text = new TextDecoder().decode(raw);
         const needsPanelTune = text.includes('m512 325.5')
@@ -313,13 +318,17 @@ export function normalizeBrandedSvgIfNeeded(file: Gio.File): void {
 }
 
 /** Trim transparent PNG padding when loading from cache (e.g. before PNG trim was added). */
-export function normalizeBrandedPngIfNeeded(file: Gio.File): void {
+export async function normalizeBrandedPngIfNeeded(
+    file: Gio.File,
+    cancellable: Gio.Cancellable | null = null,
+): Promise<void> {
     const basename = file.get_basename();
     if (!basename?.endsWith('.png') && !basename?.endsWith('.bin'))
         return;
+    const raw = await readFileBytes(file, cancellable);
+    if (!raw)
+        return;
     try {
-        const [, contents] = file.load_contents(null);
-        const raw = contents instanceof Uint8Array ? contents : new Uint8Array(contents as ArrayBuffer);
         if (!isPngBytes(raw))
             return;
         const prepared = preparePanelIconPngBytes(raw, 'image/png');

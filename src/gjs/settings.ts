@@ -13,10 +13,10 @@ export const REFRESH_CHOICES = [1, 5, 15, 30] as const;
 
 const MAIN_PATH = '/org/gnome/shell/extensions/genai-usage/';
 
-function providerPath(id: string): string {
+export function providerSchemaId(id: string): string {
     if (!/^[a-z0-9-]+$/.test(id))
         throw new Error(`Invalid provider id ${id}`);
-    return `/org/gnome/shell/extensions/genai-usage/providers/${id}/`;
+    return `${PROVIDER_SCHEMA}.${id}`;
 }
 
 export class ExtensionSettings {
@@ -55,7 +55,11 @@ export class ExtensionSettings {
         const existing = this.providers.get(id);
         if (existing)
             return existing;
-        const settings = this.open(PROVIDER_SCHEMA, providerPath(id));
+        const schemaId = providerSchemaId(id);
+        const schema = this.source.lookup(schemaId, true);
+        if (!schema)
+            throw new Error(`Missing GSettings schema ${schemaId}`);
+        const settings = new Gio.Settings({ settings_schema: schema });
         this.providers.set(id, settings);
         return settings;
     }

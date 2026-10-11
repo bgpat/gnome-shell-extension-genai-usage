@@ -16,7 +16,7 @@ Subprocesses are started with `Gio.Subprocess` and an argument vector. The shell
 GSettings:
 
 - `org.gnome.shell.extensions.genai-usage`
-- relocatable `org.gnome.shell.extensions.genai-usage.provider` at `/org/gnome/shell/extensions/genai-usage/providers/<id>/`
+- per-provider schemas `org.gnome.shell.extensions.genai-usage.provider.<id>` at `/org/gnome/shell/extensions/genai-usage/providers/<id>/` (add a matching `.gschema.xml` when you add a catalog provider)
 
 Provider order and the hidden list keep entries for providers that are temporarily disabled.
 

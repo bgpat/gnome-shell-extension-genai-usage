@@ -20,17 +20,28 @@ export function fileExists(file: Gio.File, cancellable: Gio.Cancellable): Promis
     });
 }
 
-export function readFileText(file: Gio.File, cancellable: Gio.Cancellable): Promise<string | undefined> {
+export function readFileBytes(
+    file: Gio.File,
+    cancellable: Gio.Cancellable | null = null,
+): Promise<Uint8Array | undefined> {
     return new Promise(resolve => {
         file.load_contents_async(cancellable, (_source, result) => {
             try {
                 const [, contents] = file.load_contents_finish(result);
-                resolve(new TextDecoder().decode(contents));
+                const raw = contents instanceof Uint8Array
+                    ? contents
+                    : new Uint8Array(contents as ArrayBuffer);
+                resolve(raw);
             } catch {
                 resolve(undefined);
             }
         });
     });
+}
+
+export function readFileText(file: Gio.File, cancellable: Gio.Cancellable): Promise<string | undefined> {
+    return readFileBytes(file, cancellable).then(raw =>
+        raw === undefined ? undefined : new TextDecoder().decode(raw));
 }
 
 export function configHome(): string {

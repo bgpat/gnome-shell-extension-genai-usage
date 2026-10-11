@@ -33,6 +33,14 @@ jobs:
         run: bun test
       - name: Package
         run: bun run pack
+      - name: Install Shexli
+        run: pip install 'tree-sitter==0.25.0' 'tree-sitter-javascript==0.25.0' 'shexli==0.2.1'
+      - name: Shexli
+        run: |
+          tmpdir=$(mktemp -d)
+          trap 'rm -rf "$tmpdir"' EXIT
+          unzip -q genai-usage@bgpat.github.io.zip -d "$tmpdir"
+          python3 -m shexli "$tmpdir"
       - name: Subprocess integration
         run: gjs -m tests/gjs/subprocess.js
 

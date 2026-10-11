@@ -26,16 +26,20 @@ const tsc = spawnSync('bun', ['x', 'tsc'], { cwd: root, stdio: 'inherit' });
 if (tsc.status !== 0)
     process.exit(tsc.status ?? 1);
 
+const schemaDir = join(root, 'schemas');
+const validated = spawnSync('glib-compile-schemas', ['--strict', '--dry-run', schemaDir], {
+    cwd: root,
+    encoding: 'utf8',
+});
+if (validated.status !== 0) {
+    console.error(validated.stderr);
+    process.exit(validated.status ?? 1);
+}
+
 cpSync(join(root, 'dist'), build, { recursive: true });
-cpSync(join(root, 'schemas'), join(build, 'schemas'), { recursive: true });
+cpSync(schemaDir, join(build, 'schemas'), { recursive: true });
 cpSync(join(root, 'metadata.json'), join(build, 'metadata.json'));
 cpSync(join(root, 'stylesheet.css'), join(build, 'stylesheet.css'));
-
-const compiled = spawnSync('glib-compile-schemas', ['schemas'], { cwd: build, encoding: 'utf8' });
-if (compiled.status !== 0) {
-    console.error(compiled.stderr);
-    process.exit(compiled.status ?? 1);
-}
 
 removePath(zipPath, 'Package');
 const zipped = spawnSync('zip', ['-r', zipPath, '.'], { cwd: build, encoding: 'utf8' });
@@ -55,6 +59,7 @@ const forbidden = names.filter(name =>
     || name.endsWith('.ts')
     || name.endsWith('.map')
     || name.endsWith('.md')
+    || name.endsWith('gschemas.compiled')
     || name.startsWith('src/')
     || name.startsWith('tests/'));
 if (forbidden.length > 0) {
