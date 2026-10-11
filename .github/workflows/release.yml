@@ -1,36 +1,50 @@
 # This workflow is managed by gh actions-lock.
 
-name: Release
+name: release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  update-draft-release:
     runs-on: ubuntu-latest
     steps:
+      - id: release-drafter
+        uses: release-drafter/release-drafter@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-      - name: Install tools
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - name: Install GLib tools
         run: sudo apt-get update
       - name: Install packages
         run: sudo apt-get install -y libglib2.0-bin zip unzip
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Test
-        run: bun test
-      - name: Package
-        run: bun run pack
-      - name: Publish GitHub Release
+      - uses: $/.github/actions/bun-deps
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git reset --hard
+          git clean -fd
+          bunx dot-json package.json version ${VERSION#v}
+          bun install
+          if ! git diff --quiet; then
+            git add package.json bun.lock
+            git commit -m "$VERSION"
+            git push origin HEAD:refs/heads/main
+          fi
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "${GITHUB_REF_NAME}" \
-            genai-usage@bgpat.github.io.zip
+          VERSION: ${{ steps.release-drafter.outputs.tag_name }}
+      - run: bun run pack
+      - uses: bgpat/release-asset-action@v2
+        with:
+          pattern: genai-usage@bgpat.github.io.zip
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          release-id: ${{ steps.release-drafter.outputs.id }}
+          allow-overwrite: true

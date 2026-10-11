@@ -1,14 +1,32 @@
 # Release
 
-1. Run `bun test`, `bun run typecheck`, `bun run lint`, and `bun run pack`.
-2. Install the zip with `bun run install:local` and confirm the top bar, menu, and both preference pages.
-3. Confirm `metadata.json` `shell-version` lists only versions covered in [testing.md](testing.md).
-4. Tag the commit, for example `v0.1.0`, and push the tag.
+Releases follow the same pattern as [anchor-selector](https://github.com/bgpat/anchor-selector): [Release Drafter](https://github.com/release-drafter/release-drafter) maintains a draft GitHub Release on `main`, and publishing that release uploads the extension zip to extensions.gnome.org.
 
-`.github/workflows/release.yml` runs the unit tests, builds `genai-usage@bgpat.github.io.zip`, and attaches it to the GitHub Release for that tag.
+## Before the first automated publish
 
-The extensions.gnome.org upload is the same zip. It must not contain `node_modules`, TypeScript, source maps, or the docs. `bun run pack` checks the file list.
+1. Configure GitHub repository secrets (Settings → Secrets and variables → Actions):
+   - `DEPLOY_KEY` — deploy key with write access, used to bump `package.json` on `main` after Release Drafter resolves a version (same as anchor-selector).
+   - `EGO_USERNAME` — extensions.gnome.org account login.
+   - `EGO_PASSWORD` — extensions.gnome.org account password.
+2. Label merged pull requests (`feature`, `fix`, `patch`, etc.) so Release Drafter can resolve semver.
+3. Run through the manual checklist once: `bun test`, `bun run typecheck`, `bun run lint`, `bun run pack`, then `bun run install:local` and confirm the top bar, menu, and preference pages.
+4. Confirm `metadata.json` `shell-version` lists only versions covered in [testing.md](testing.md).
 
-Before uploading, read the [review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html). In particular: no work before `enable()`, cleanup in `disable()`, no GTK in the shell process, no trademark logos in the zip, and no minified code.
+## Day-to-day flow
+
+1. Merge changes into `main`. CI runs tests and packaging.
+2. The **release** workflow updates the draft release notes, bumps `package.json` to match the draft tag when needed, runs `bun run pack`, and attaches `genai-usage@bgpat.github.io.zip` to the draft.
+3. When the draft looks right, **Publish release** on GitHub. The **publish** workflow checks out the release tag, runs tests, packs again, and runs `bun run publish:ego` (extensions.gnome.org API upload for review).
+
+The zip must not contain `node_modules`, TypeScript, source maps, or the docs. `bun run pack` checks the file list.
+
+Before the first upload, read the [review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html). In particular: no work before `enable()`, cleanup in `disable()`, no GTK in the shell process, no trademark logos in the zip, and no minified code.
 
 The Fedora matrix in `test-multi-versions.yml` does not by itself change `shell-version`. Update the metadata only after inspecting a successful log.
+
+## Local EGO upload
+
+```sh
+bun run pack
+EGO_USERNAME=… EGO_PASSWORD=… bun run publish:ego
+```

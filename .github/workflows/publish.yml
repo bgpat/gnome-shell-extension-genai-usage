@@ -1,0 +1,27 @@
+# This workflow is managed by gh actions-lock.
+
+name: publish
+
+on:
+  release:
+    types:
+      - released
+
+jobs:
+  publish-ego:
+    runs-on: ubuntu-latest
+    env:
+      EGO_USERNAME: ${{ secrets.EGO_USERNAME }}
+      EGO_PASSWORD: ${{ secrets.EGO_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Install GLib tools
+        run: sudo apt-get update
+      - name: Install packages
+        run: sudo apt-get install -y libglib2.0-bin zip unzip
+      - uses: $/.github/actions/bun-deps
+      - run: bun test
+      - run: bun run pack
+      - run: bun run publish:ego
