@@ -36,7 +36,11 @@ jobs:
       - name: Install Shexli
         run: pip install 'shexli==0.2.1'
       - name: Shexli
-        run: python3 -m shexli genai-usage@bgpat.github.io.zip
+        run: |
+          tmpdir=$(mktemp -d)
+          trap 'rm -rf "$tmpdir"' EXIT
+          unzip -q genai-usage@bgpat.github.io.zip -d "$tmpdir"
+          python3 -m shexli "$tmpdir"
       - name: Subprocess integration
         run: gjs -m tests/gjs/subprocess.js
 
