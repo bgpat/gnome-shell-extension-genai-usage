@@ -3,13 +3,15 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
-import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
+import { appendLog } from '../gjs/log.js';
+import { discoverCursorQuotas, validateCursorUsageSource } from '../gjs/providers/cursor.js';
 import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
 import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
-import { createUnofficialSourceSwitch } from './unofficialSource.js';
+import { changeJevUsageSource } from './providers/jev.js';
+import { createUnofficialSourceSwitch, UNOFFICIAL_SOURCE_SETTING, type ChangeUsageSource } from './unofficialSource.js';
 
 interface ProviderColumn {
     entry: ProviderCatalogEntry;
@@ -164,8 +166,23 @@ function buildProviderColumn(
     );
     provider.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    const unofficial = entry.supportsUnofficial
-        ? createUnofficialSourceSwitch(entry, provider, applyModes, cancellable)
+    const usageSourceChanges: Partial<Record<string, ChangeUsageSource>> = {
+        cursor: async (enable: boolean) => {
+            if (enable) {
+                appendLog('info', 'Services: validating the Cursor unofficial usage source.', 'user');
+                applyModes(await validateCursorUsageSource(cancellable));
+            }
+            if (cancellable.is_cancelled())
+                return false;
+            if (!provider.set_boolean(UNOFFICIAL_SOURCE_SETTING, enable))
+                throw new Error('The setting could not be saved.');
+            return true;
+        },
+        jev: (enable: boolean, parent: Gtk.Window) => changeJevUsageSource(enable, parent, provider, cancellable),
+    };
+    const changeUsageSource = usageSourceChanges[entry.id];
+    const unofficial = entry.supportsUnofficial && changeUsageSource
+        ? createUnofficialSourceSwitch(entry, provider, changeUsageSource, cancellable)
         : null;
 
     if (entry.dynamicQuotas)
