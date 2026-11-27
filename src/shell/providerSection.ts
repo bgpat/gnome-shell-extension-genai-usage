@@ -80,7 +80,7 @@ export function fillProviderSection(
     let balanceDisplayed = false;
     for (const quota of snapshot.quotas) {
         const creditPercent = balance && quota.id === 'credits' ? quotaBarText(quota, percentMode) : undefined;
-        const text = creditPercent ? `${balance} (${creditPercent})` : quotaMenuLineText(quota, percentMode);
+        const text = creditPercent ? `Credits: ${balance} (${creditPercent})` : quotaMenuLineText(quota, percentMode);
         balanceDisplayed ||= creditPercent !== undefined;
         box.add_child(new St.Label({ text }));
         const displayPercent = quotaPercentForDisplay(quota, percentMode);
@@ -97,7 +97,7 @@ export function fillProviderSection(
 
     if (balance) {
         if (!balanceDisplayed)
-            box.add_child(new St.Label({ text: balance, style_class: 'genai-usage-muted' }));
+            box.add_child(new St.Label({ text: `Credits: ${balance}`, style_class: 'genai-usage-muted' }));
     } else if (snapshot.credits) {
         const parts: string[] = [];
         if (snapshot.credits.unlimited)
