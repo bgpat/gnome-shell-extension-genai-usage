@@ -15,9 +15,13 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
 
     const path = GLib.build_filenamev([configHome(), 'genai-usage', 'jev-cookie']);
     const file = Gio.File.new_for_path(path);
-    const cookie = (await readFileText(file, cancellable))?.trim().replace(/^Cookie:[ \t]*/i, '');
-    if (!cookie || !cookie.includes('=') || /[^\x20-\x7e]/.test(cookie))
-        return unavailable('Set up the TypeSafe console cookie file as described in the README');
+    const rawCookie = await readFileText(file, cancellable);
+    if (rawCookie === undefined)
+        return unavailable('TypeSafe console cookie file is missing or unreadable. See the README for setup');
+
+    const cookie = rawCookie.trim().replace(/^Cookie:[ \t]*/i, '');
+    if (!cookie.includes('=') || /[^\x20-\x7e]/.test(cookie))
+        return unavailable('TypeSafe cookie file must contain the full Cookie request header value on one line');
 
     try {
         const response = await httpGet({

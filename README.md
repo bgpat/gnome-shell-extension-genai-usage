@@ -34,7 +34,7 @@ Provider icons are downloaded over HTTPS when **Download provider icons** is on 
 1. Sign in to the [TypeSafe console](https://console.typesafe.ai/billing) and select your organization.
 2. Open your browser’s Network panel and reload Billing. Find the `/api/billing/overview` request and copy the value of its request `Cookie` header.
 3. Save the value as a single line in `${XDG_CONFIG_HOME:-$HOME/.config}/genai-usage/jev-cookie`. Keep the file private (`chmod 600`) and replace its contents when your console session expires.
-4. In **Services**, turn on **Show in top bar** and **Allow unofficial usage source** for Jev.
+4. In **Services**, turn on **Show in top bar** and **Allow unofficial usage source** for Jev. Use **Refresh** in the top-bar menu after adding or replacing the cookie.
 
 Jev displays the **Available credits** balance from Billing in the top bar, dropdown menu, and General preview. The extension sends the session cookie only to the TypeSafe billing overview endpoint. The Jev inference API key cannot read this balance.
 

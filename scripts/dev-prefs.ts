@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -34,9 +34,8 @@ for (const name of ['cursor', 'Cursor']) {
 
 const jevCookie = join(realConfig, 'genai-usage', 'jev-cookie');
 const jevCookieLink = join(config, 'genai-usage', 'jev-cookie');
-if (existsSync(jevCookie) && !existsSync(jevCookieLink)) {
+if (!lstatSync(jevCookieLink, { throwIfNoEntry: false })) {
     mkdirSync(join(config, 'genai-usage'), { recursive: true });
-    rmSync(jevCookieLink, { force: true });
     symlinkSync(jevCookie, jevCookieLink);
 }
 
