@@ -2,7 +2,7 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.genai-usage.provider.jev" path="/org/gnome/shell/extensions/genai-usage/providers/jev/">
     <key name="enabled" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Enabled</summary>
       <description>Whether this provider is active. Order and visibility are kept while it is disabled.</description>
     </key>
