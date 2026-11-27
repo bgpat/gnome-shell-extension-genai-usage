@@ -78,6 +78,7 @@ const run = spawnSync('gjs', ['-m', entry, dest], {
         ...process.env,
         XDG_DATA_HOME: data,
         XDG_CONFIG_HOME: config,
+        GSETTINGS_BACKEND: 'keyfile',
         GI_TYPELIB_PATH: giTypelib,
     },
 });

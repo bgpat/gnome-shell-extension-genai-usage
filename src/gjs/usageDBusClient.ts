@@ -35,8 +35,8 @@ function ensureProxy(): Gio.DBusProxy | null {
         return null;
     }
     if (signalId === 0) {
-        signalId = proxy.connect('g-signal', (_p, sender, name, _params) => {
-            if (sender !== LOG_BUS_NAME || name !== 'Changed')
+        signalId = proxy.connect('g-signal', (_p, _sender, name, _params) => {
+            if (name !== 'Changed')
                 return;
             notify();
         });
@@ -45,7 +45,7 @@ function ensureProxy(): Gio.DBusProxy | null {
 }
 
 export function shellSnapshotsAvailable(): boolean {
-    return ensureProxy() !== null;
+    return ensureProxy()?.get_name_owner() != null;
 }
 
 export function snapshotsFromShell(): Map<string, UsageSnapshot> {

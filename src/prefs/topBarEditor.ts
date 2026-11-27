@@ -10,7 +10,7 @@ import {
     snapshotsFromShell,
     subscribeShellSnapshots,
 } from '../gjs/usageDBusClient.js';
-import { formatRemaining } from '../lib/format.js';
+import { barEntries, barItemLabel } from '../lib/presentation.js';
 import { catalogEntry, KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import { previewOrder, reorderTarget, type PillBound } from '../lib/barReorder.js';
@@ -18,12 +18,6 @@ import { placeProvider, visibleIds, type LayoutState } from '../lib/layout.js';
 import { appendLog } from '../gjs/log.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
-
-/** Sample remaining quota for the prefs preview only (not live usage data). */
-const PREVIEW_REMAINING_PERCENT: Record<string, number> = {
-    chatgpt: 76,
-    cursor: 42,
-};
 
 export class TopBarEditor {
     readonly widget: Gtk.Box;
@@ -168,12 +162,15 @@ export class TopBarEditor {
 
     private pillLabel(id: string): string {
         const name = catalogEntry(id)?.displayName ?? id;
-        const remaining = PREVIEW_REMAINING_PERCENT[id] ?? 67;
-        const value = this.settings.quotaPercentMode === 'used'
-            ? 100 - remaining
-            : remaining;
-        const text = formatRemaining(value) ?? `${value}%`;
-        return this.settings.showProviderNames ? `${name} ${text}` : text;
+        const [entry] = barEntries(
+            [id],
+            this.snapshots,
+            providerId => this.settings.topBarQuota(providerId),
+            this.settings.unavailableDisplay,
+            this.settings.quotaPercentMode,
+        );
+        return (entry && barItemLabel(entry, this.settings.showProviderNames))
+            ?? (this.settings.showProviderNames ? name : '—');
     }
 
     private appendPillHandle(pill: Gtk.Box, id: string, index: number): void {
