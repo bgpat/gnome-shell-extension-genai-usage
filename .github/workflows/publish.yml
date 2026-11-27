@@ -5,10 +5,12 @@ name: publish
 on:
   release:
     types:
+      - published
       - released
 
 jobs:
   publish-ego:
+    if: ${{ !github.event.release.prerelease && !github.event.release.draft }}
     runs-on: ubuntu-latest
     env:
       EGO_USERNAME: ${{ secrets.EGO_USERNAME }}
