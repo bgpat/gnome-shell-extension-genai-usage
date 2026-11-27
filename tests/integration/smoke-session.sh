@@ -11,7 +11,8 @@ shell_pid=$!
 i=0
 while [ "$i" -lt 60 ]; do
   if busctl --user call org.gnome.Shell /org/gnome/Shell org.gnome.Shell.Extensions GetExtensionInfo s "$uuid" > /tmp/genai-usage-extension-info.txt 2>/tmp/genai-usage-extension-error.txt; then
-    if grep -q '"state" d 1' /tmp/genai-usage-extension-info.txt && grep -q '"error" s ""' /tmp/genai-usage-extension-info.txt; then
+    if grep -q '"state" d 1' /tmp/genai-usage-extension-info.txt && grep -q '"error" s ""' /tmp/genai-usage-extension-info.txt \
+      && busctl --user call io.github.bgpat.GenaiUsage /io/github/bgpat/GenaiUsage/Usage io.github.bgpat.GenaiUsage.Usage GetSnapshots >/dev/null 2>&1; then
       echo "headless GNOME Shell loaded $uuid"
       kill "$shell_pid"
       wait "$shell_pid" || true
