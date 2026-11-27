@@ -42,3 +42,19 @@ sh tests/integration/smoke.sh
 ```
 
 The script uses a temporary `XDG_DATA_HOME` and `dbus-run-session`, so it does not install into the running session.
+
+
+## Preferences screenshots
+
+Pull requests capture General, Services, and Log on Ubuntu 24.04 (GNOME 46)
+and Ubuntu 26.04 (GNOME 50). Download the PNGs from the workflow run's
+**Artifacts** section under `preferences-gnome-46` and `preferences-gnome-50`.
+The test opens the packed Preferences app with isolated settings on Xvfb and
+checks that each tab gets a usable viewport.
+
+To capture the same screenshots locally, install `gnome-shell`, `gjs`, `xvfb`,
+`xauth`, and `imagemagick`, then run from the worktree:
+
+```sh
+sh tests/integration/preferences-screenshots.sh /tmp/genai-preferences-screenshots
+```
