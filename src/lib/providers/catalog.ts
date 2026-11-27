@@ -42,7 +42,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'jev',
         displayName: 'Jev',
-        defaultIconUrl: 'https://raw.githubusercontent.com/steipete/CodexBar/main/docs/logos/typesafe.svg',
+        defaultIconUrl: googleFaviconUrl('https://console.typesafe.ai'),
         executableNames: [],
         dynamicQuotas: false,
         showsCreditBalance: true,
