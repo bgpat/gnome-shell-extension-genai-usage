@@ -75,7 +75,6 @@ export class TopBarEditor {
             child: previewBar,
             hscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
             vscrollbar_policy: Gtk.PolicyType.NEVER,
-            overlay_scrolling: false,
         }));
 
         subscribeShellSnapshots(() => {

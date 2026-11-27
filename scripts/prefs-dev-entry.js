@@ -70,9 +70,12 @@ async function capturePages(window, directory) {
 
         const page = window.get_visible_page();
         const scroller = page.get_first_child();
+        const width = window.get_width();
+        // Older GTK versions count the window frame against the requested width.
+        const narrowWidthMismatch = narrow && (width > 400 || window.get_surface().get_width() < 400);
         if (page.name !== name || scroller.get_height() < page.get_height() / 2 ||
-            page.get_width() > window.get_width() || (narrow && window.get_width() !== 400)) {
-            console.error('Preferences content is clipped on ' + name + suffix);
+            page.get_width() > width || narrowWidthMismatch) {
+            console.error(`Unexpected Preferences layout on ${name}${suffix} (page ${page.get_width()} px, window ${width} px)`);
             clipped = true;
         }
     }
