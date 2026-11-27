@@ -96,8 +96,25 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
         appendLog('info', 'Services: opened the Jev setup README.', 'user');
         return false;
     });
+    const warning = new Gtk.Box({ spacing: 8, visible: false });
+    const warningIcon = new Gtk.Image({
+        icon_name: 'dialog-warning-symbolic',
+        valign: Gtk.Align.START,
+        css_classes: ['warning'],
+    });
+    const warningText = new Gtk.Label({ xalign: 0, wrap: true, max_width_chars: 34 });
+    warning.append(warningIcon);
+    warning.append(warningText);
+
+    const showWarning = (message: string) => {
+        dialog.body = instructions;
+        warningText.label = message;
+        warning.visible = true;
+    };
+
     const fields = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
     fields.append(cookie);
+    fields.append(warning);
     fields.append(readme);
     dialog.extra_child = fields;
     dialog.add_response('cancel', 'Cancel');
@@ -129,7 +146,7 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
 
             const value = parseJevCookie(cookie.text);
             if (!value) {
-                dialog.body = 'Paste the full Cookie request header value on one line.';
+                showWarning('Paste the full Cookie request header value on one line.');
                 appendLog('warn', 'Services: Jev Cookie header format was rejected.', 'user');
                 return;
             }
@@ -137,6 +154,7 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
             cookie.sensitive = false;
             dialog.set_response_enabled('validate', false);
             dialog.set_response_enabled('cancel', false);
+            warning.visible = false;
             dialog.body = 'Checking the TypeSafe session…';
             appendLog('info', 'Services: validating the Jev unofficial usage source.', 'user');
             void (async () => {
@@ -146,7 +164,7 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
                     if (cancellable.is_cancelled())
                         return;
                     if (snapshot.availability.state === 'unavailable') {
-                        dialog.body = snapshot.availability.reason;
+                        showWarning(snapshot.availability.reason);
                         appendLog('warn', `Services: Jev validation failed. ${snapshot.availability.reason}`, 'user');
                         return;
                     }
@@ -155,7 +173,7 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
                     if (!saved)
                         throw new Error('Could not save the cookie');
                 } catch {
-                    dialog.body = 'Could not save the cookie in the GNOME keyring. Check that it is installed and unlocked.';
+                    showWarning('Could not save the cookie in the GNOME keyring. Check that it is installed and unlocked.');
                     appendLog('warn', 'Services: could not save the Jev cookie in the keyring.', 'user');
                 } finally {
                     running = false;
