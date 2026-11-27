@@ -124,70 +124,95 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
     dialog.close_response = 'cancel';
 
     return new Promise(resolve => {
-        let running = false;
-        dialog.connect('close-request', () => {
-            if (running)
-                return true;
+        let request: Gio.Cancellable | undefined;
+        let closed = false;
+
+        const close = () => {
+            closed = true;
             cookie.text = '';
-            resolve(false);
-            return false;
-        });
-        dialog.connect('response', (_dialog, response: string) => {
-            if (running)
+            dialog.destroy();
+        };
+        const cancel = () => {
+            if (closed)
                 return;
-            if (response === 'cancel') {
-                cookie.text = '';
+            close();
+            if (request)
+                request.cancel();
+            else
                 resolve(false);
-                dialog.destroy();
+        };
+        dialog.connect('close-request', () => {
+            cancel();
+            return true;
+        });
+
+        const validate = async (value: string, attempt: Gio.Cancellable) => {
+            const parentCancel = cancellable.connect(() => attempt.cancel());
+            let saving = false;
+            let saved = false;
+            try {
+                const snapshot = await fetchJevBilling(value, attempt);
+                if (attempt.is_cancelled())
+                    return;
+                if (snapshot.availability.state === 'unavailable') {
+                    showWarning(snapshot.availability.reason);
+                    appendLog('warn', `Services: Jev validation failed. ${snapshot.availability.reason}`, 'user');
+                    return;
+                }
+                dialog.body = 'Saving the cookie in the GNOME keyring…';
+                saving = true;
+                saved = await saveJevCookie(value, attempt);
+                if (!saved)
+                    throw new Error('Could not save the cookie');
+            } catch {
+                if (!attempt.is_cancelled()) {
+                    showWarning('Could not save the cookie in the GNOME keyring. Check that it is installed and unlocked.');
+                    appendLog('warn', 'Services: could not save the Jev cookie in the keyring.', 'user');
+                }
+            } finally {
+                if (parentCancel)
+                    cancellable.disconnect(parentCancel);
+                request = undefined;
+                if (closed || cancellable.is_cancelled()) {
+                    if (saving) {
+                        try {
+                            await clearJevCookie(new Gio.Cancellable());
+                        } catch {
+                            appendLog('warn', 'Services: could not remove the Jev cookie after cancellation.', 'user');
+                        }
+                    }
+                    resolve(false);
+                } else if (saved) {
+                    close();
+                    resolve(true);
+                } else {
+                    cookie.sensitive = true;
+                    dialog.set_response_enabled('validate', true);
+                }
+            }
+        };
+
+        dialog.connect('response', (_dialog, response: string) => {
+            if (response === 'cancel') {
+                cancel();
                 return;
             }
-            if (response !== 'validate')
+            if (response !== 'validate' || request || closed)
                 return;
-
             const value = parseJevCookie(cookie.text);
             if (!value) {
                 showWarning('Paste the full Cookie request header value on one line.');
                 appendLog('warn', 'Services: Jev Cookie header format was rejected.', 'user');
                 return;
             }
-            running = true;
+
+            request = new Gio.Cancellable();
             cookie.sensitive = false;
             dialog.set_response_enabled('validate', false);
-            dialog.set_response_enabled('cancel', false);
             warning.visible = false;
             dialog.body = 'Checking the TypeSafe session…';
             appendLog('info', 'Services: validating the Jev unofficial usage source.', 'user');
-            void (async () => {
-                let saved = false;
-                try {
-                    const snapshot = await fetchJevBilling(value, cancellable);
-                    if (cancellable.is_cancelled())
-                        return;
-                    if (snapshot.availability.state === 'unavailable') {
-                        showWarning(snapshot.availability.reason);
-                        appendLog('warn', `Services: Jev validation failed. ${snapshot.availability.reason}`, 'user');
-                        return;
-                    }
-                    dialog.body = 'Saving the cookie in the GNOME keyring…';
-                    saved = await saveJevCookie(value, cancellable);
-                    if (!saved)
-                        throw new Error('Could not save the cookie');
-                } catch {
-                    showWarning('Could not save the cookie in the GNOME keyring. Check that it is installed and unlocked.');
-                    appendLog('warn', 'Services: could not save the Jev cookie in the keyring.', 'user');
-                } finally {
-                    running = false;
-                    if (saved || cancellable.is_cancelled()) {
-                        cookie.text = '';
-                        resolve(saved);
-                        dialog.destroy();
-                    } else {
-                        cookie.sensitive = true;
-                        dialog.set_response_enabled('validate', true);
-                        dialog.set_response_enabled('cancel', true);
-                    }
-                }
-            })();
+            void validate(value, request);
         });
         cookie.connect('activate', () => dialog.response('validate'));
         dialog.present();
