@@ -175,14 +175,19 @@ export function createGeneralPage(settings: ExtensionSettings): { page: Adw.Pref
     resetGroup.margin_bottom = 24;
     page.add(resetGroup);
 
+    const syncChoices = () => {
+        syncInterval();
+        syncLogLevel();
+        syncDisplay();
+        syncQuotaPercent();
+    };
+    syncChoices();
+
     return {
         page,
         reload: () => {
             editor.reload();
-            syncInterval();
-            syncLogLevel();
-            syncDisplay();
-            syncQuotaPercent();
+            syncChoices();
         },
     };
 }

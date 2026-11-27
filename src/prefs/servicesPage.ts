@@ -2,22 +2,21 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
-import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
-import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
-import { appendLog } from '../gjs/log.js';
-import { refreshProvider } from '../gjs/providers/registry.js';
-import { shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
+import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
+import type { Provider, QuotaMode } from '../lib/providers/provider.js';
+import { PROVIDERS } from '../lib/providers/registry.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
+import { promptForValidatedSecret } from './secretValidationDialog.js';
+import { createUnofficialSourceSwitch } from './unofficialSource.js';
 
 interface ProviderColumn {
-    entry: ProviderCatalogEntry;
+    provider: Provider;
     reload: () => void;
     cell: {
         enabled: Gtk.Switch;
-        executable: Gtk.Entry;
+        executable: Gtk.Entry | null;
         quota: Gtk.DropDown;
         showPlan: Gtk.Switch;
         showBilling: Gtk.Switch;
@@ -26,13 +25,12 @@ interface ProviderColumn {
     };
 }
 
-export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
+export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void; destroy: () => void } {
     const page = newServicesTab();
     const cancellable = new Gio.Cancellable();
-    const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
+    const columns = PROVIDERS.map(provider => buildProviderColumn(provider, settings, cancellable));
     const group = new Adw.PreferencesGroup({
-        description:
-            'Rows are settings; columns are providers. Cursor quota details from cursor.com need the unofficial source.',
+        description: 'Rows are settings; columns are providers.',
     });
     // Keep the matrix reachable without imposing its minimum width on every tab.
     group.add(new Gtk.ScrolledWindow({
@@ -43,9 +41,19 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
     }));
     group.margin_bottom = 24;
     page.add(group);
+    const unsubscribe = subscribeShellSnapshots(() => {
+        for (const column of columns) {
+            if (column.provider.preferences.unofficialQuotas)
+                column.reload();
+        }
+    });
 
     return {
         page,
+        destroy: () => {
+            unsubscribe();
+            cancellable.cancel();
+        },
         reload: () => {
             if (cancellable.is_cancelled())
                 return;
@@ -56,135 +64,128 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
 }
 
 function buildProviderColumn(
-    entry: ProviderCatalogEntry,
+    provider: Provider,
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): ProviderColumn {
-    const provider = settings.provider(entry.id);
-    const modes: QuotaMode[] = [...(entry.staticQuotaModes ?? [])];
+    const { id, preferences } = provider;
+    const providerSettings = settings.provider(id);
+    const initialModes = preferences.quotaModes ?? [];
+    let modes = initialModes;
     let updatingQuota = false;
 
     const enabled = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('enabled', enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('enabled', enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-    const executable = new Gtk.Entry({
-        hexpand: true,
-        placeholder_text: entry.executableNames[0] ?? 'Executable path',
-    });
-    provider.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
+    const executable = preferences.executablePlaceholder
+        ? new Gtk.Entry({ hexpand: true, placeholder_text: preferences.executablePlaceholder })
+        : null;
+    if (executable)
+        providerSettings.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    let quotaModel = new Gtk.StringList();
-    const quota = Gtk.DropDown.new(quotaModel, null);
+    const quota = Gtk.DropDown.new(new Gtk.StringList(), null);
     quota.hexpand = true;
     quota.halign = Gtk.Align.FILL;
 
-    const applyModes = (next: QuotaMode[]) => {
+    const applyModes = (next: readonly QuotaMode[]) => {
         updatingQuota = true;
-        modes.splice(0, modes.length, ...next);
+        modes = next;
         const model = new Gtk.StringList();
         if (modes.length === 0)
-            model.append('No quota reported');
+            model.append(preferences.emptyQuotaLabel ?? 'No quota reported');
         else {
             for (const mode of modes)
                 model.append(mode.label);
         }
         quota.model = model;
-        quotaModel = model;
         quota.sensitive = modes.length > 0;
-        const current = settings.topBarQuota(entry.id);
+        const current = settings.topBarQuota(id);
         const index = modes.findIndex(mode => mode.id === current);
         quota.selected = index >= 0 ? index : 0;
         updatingQuota = false;
     };
-    applyModes(modes);
+    applyModes(initialModes);
     quota.connect('notify::selected', () => {
         if (updatingQuota)
             return;
         const mode = modes[quota.selected];
         if (!mode)
             return;
-        if (mode.id !== settings.topBarQuota(entry.id))
-            settings.setTopBarQuota(entry.id, mode.id);
+        if (mode.id !== settings.topBarQuota(id))
+            settings.setTopBarQuota(id, mode.id);
     });
 
+    let discoveringQuotas = false;
+    const unofficialQuotas = preferences.unofficialQuotas;
     const syncDynamicQuotaModes = () => {
-        if (!entry.dynamicQuotas)
+        if (!unofficialQuotas)
             return;
-        if (!settings.allowUnofficial(entry.id)) {
+        if (!settings.allowUnofficial(id)) {
             applyModes([]);
             return;
         }
         if (shellSnapshotsAvailable()) {
-            const snapshot = snapshotsFromShell().get(entry.id);
+            const snapshot = snapshotsFromShell().get(id);
             if (snapshot) {
-                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
-                if (fromSnapshot.length > 0) {
+                const fromSnapshot = unofficialQuotas.fromSnapshot(snapshot);
+                if (fromSnapshot.length > 0)
                     applyModes(fromSnapshot);
-                    return;
-                }
             }
+            return;
         }
-        void discoverCursorQuotas({
-            allowUnofficial: true,
-            cancellable,
-        }).then(found => {
-            if (cancellable.is_cancelled())
-                return;
-            applyModes(found);
+        if (discoveringQuotas)
+            return;
+        discoveringQuotas = true;
+        void unofficialQuotas.discover(cancellable).then(found => {
+            if (!cancellable.is_cancelled() && settings.allowUnofficial(id))
+                applyModes(found);
         }).catch(() => {
             if (!cancellable.is_cancelled())
                 applyModes([]);
-        });
+        }).finally(() => { discoveringQuotas = false; });
     };
 
     const showPlan = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('show-plan', showPlan, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('show-plan', showPlan, 'active', Gio.SettingsBindFlags.DEFAULT);
 
     const showBilling = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('show-billing', showBilling, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('show-billing', showBilling, 'active', Gio.SettingsBindFlags.DEFAULT);
 
     const iconUrl = new Gtk.Entry({
         hexpand: true,
         placeholder_text: 'HTTPS icon URL (optional)',
     });
     iconUrl.set_tooltip_text(
-        'HTTPS image URL. When empty, ChatGPT uses https://chatgpt.com/favicon.svg and Cursor uses https://cursor.com/favicon.svg .',
+        'HTTPS image URL. Leave empty to use the default provider icon.',
     );
-    provider.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    let unofficial: Gtk.Switch | null = null;
-    if (entry.supportsUnofficial) {
-        unofficial = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-        provider.bind('allow-unofficial-sources', unofficial, 'active', Gio.SettingsBindFlags.DEFAULT);
-        unofficial.connect('notify::active', () => {
-            if (unofficial!.active)
-                appendLog('info', `Services: unofficial usage source enabled for ${entry.id}.`, 'user');
-            syncDynamicQuotaModes();
-            if (!unofficial!.active)
-                return;
-            void refreshProvider(entry.id, settings, cancellable).then(snapshot => {
-                if (cancellable.is_cancelled())
-                    return;
-                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
-                if (fromSnapshot.length > 0)
-                    applyModes(fromSnapshot);
-            });
-        });
-    }
+    const changeUsageSource = preferences.changeUnofficialSource;
+    const unofficial = changeUsageSource ? createUnofficialSourceSwitch(
+        provider,
+        providerSettings,
+        (enable, parent) => changeUsageSource(enable, {
+            settings: providerSettings,
+            cancellable,
+            promptForSecret: prompt => promptForValidatedSecret(parent, cancellable, prompt),
+            applyQuotaModes: applyModes,
+        }),
+        cancellable,
+    ) : null;
 
-    if (entry.dynamicQuotas)
+    if (unofficialQuotas)
         syncDynamicQuotaModes();
 
     const reload = () => {
-        if (!entry.dynamicQuotas) {
-            applyModes([...(catalogEntry(entry.id)?.staticQuotaModes ?? [])]);
-            return;
-        }
-        syncDynamicQuotaModes();
+        unofficial?.reload();
+        if (unofficialQuotas)
+            syncDynamicQuotaModes();
+        else
+            applyModes(initialModes);
     };
 
     return {
-        entry,
+        provider,
         reload,
         cell: {
             enabled,
@@ -193,7 +194,7 @@ function buildProviderColumn(
             showPlan,
             showBilling,
             iconUrl,
-            unofficial,
+            unofficial: unofficial?.widget ?? null,
         },
     };
 }
@@ -216,7 +217,7 @@ function buildServicesMatrix(
     grid.attach(matrixCornerLabel(), 0, 0, 1, 1);
     for (let columnIndex = 0; columnIndex < columns.length; columnIndex++)
         grid.attach(
-            buildColumnHeader(columns[columnIndex]!.entry, settings, cancellable),
+            buildColumnHeader(columns[columnIndex]!.provider, settings, cancellable),
             columnIndex + 1,
             0,
             1,
@@ -235,11 +236,11 @@ function buildServicesMatrix(
         },
         {
             label: 'Executable',
-            cell: column => column.cell.executable,
+            cell: column => column.cell.executable ?? matrixNaCell(),
         },
         {
             label: 'Top bar quota',
-            tooltip: 'Cursor choices fill in after you allow the unofficial source and Shell refreshes.',
+            tooltip: 'Web quota choices appear after you allow the unofficial source and Shell refreshes.',
             cell: column => column.cell.quota,
         },
         {
@@ -256,7 +257,7 @@ function buildServicesMatrix(
         },
         {
             label: 'Allow unofficial usage source',
-            tooltip: 'Reads the local Cursor session and requests cursor.com/api/usage-summary. This is not an official Cursor CLI feature.',
+            tooltip: 'Allows a provider to read usage from its web console.',
             cell: column => column.cell.unofficial
                 ? centerSwitch(column.cell.unofficial)
                 : matrixNaCell(),
@@ -306,7 +307,7 @@ function centerSwitch(sw: Gtk.Switch): Gtk.Widget {
 }
 
 function buildColumnHeader(
-    entry: ProviderCatalogEntry,
+    { id, displayName, preferences }: Provider,
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): Gtk.Widget {
@@ -320,14 +321,14 @@ function buildColumnHeader(
 
     const titleRow = new Gtk.Box({ spacing: 8, halign: Gtk.Align.CENTER });
     const iconBox = new Gtk.Box();
-    attachProviderGtkImage(iconBox, entry.id, settings, cancellable);
+    attachProviderGtkImage(iconBox, id, settings, cancellable);
     titleRow.append(iconBox);
-    const title = new Gtk.Label({ label: entry.displayName });
+    const title = new Gtk.Label({ label: displayName });
     title.add_css_class('heading');
     titleRow.append(title);
     box.append(titleRow);
 
-    const note = columnHeaderNote(entry);
+    const note = preferences.columnHeaderNote;
     if (note) {
         const subtitle = new Gtk.Label({
             label: note,
@@ -341,12 +342,4 @@ function buildColumnHeader(
         box.append(subtitle);
     }
     return box;
-}
-
-function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
-    if (entry.supportsUnofficial)
-        return 'Quota details from cursor.com are off until you allow the unofficial source.';
-    if (entry.id === 'chatgpt')
-        return 'Uses the official Codex app-server and the existing Codex login.';
-    return undefined;
 }

@@ -1,6 +1,6 @@
 # GenAI Usage
 
-GNOME Shell extension that shows ChatGPT and Cursor usage in the top bar.
+GNOME Shell extension that shows ChatGPT, Cursor, and Jev usage in the top bar.
 
 UUID: `genai-usage@bgpat.github.io`
 
@@ -11,6 +11,7 @@ UUID: `genai-usage@bgpat.github.io`
 | ChatGPT | Official `codex app-server` (`account/read`, `account/rateLimits/read`) | Yes, when Codex returns `planType` | Five-hour and weekly windows when `windowDurationMins` is 300 or 10080. Other windows use a generic label. | `resetsAt` | `credits.balance` when present | Not provided by these methods |
 | Cursor | Official `cursor-agent status` and `about` | `subscriptionTier` when the CLI returns it | Not available | Not available | Not available | Not available |
 | Cursor, optional | Unofficial `GET https://cursor.com/api/usage-summary` | `membershipType` | Plan, Auto, and API percentages when those fields are present | Billing cycle end | Not provided by this response | On-demand amounts when `individualUsage.onDemand` is present |
+| [Jev (TypeSafe), optional](docs/jev.md) | TypeSafe console billing overview (unofficial) | — | Share of unexpired credits when the grants account for the balance | — | Available credits in USD | Spend, credit grants, billing details and history when reported |
 
 Missing values stay missing. They are not shown as zero.
 

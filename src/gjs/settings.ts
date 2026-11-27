@@ -3,12 +3,13 @@ import Gio from 'gi://Gio';
 import { normalizeLayout, type LayoutState } from '../lib/layout.js';
 import { type LogLevel, parseLogLevel } from '../lib/logLevel.js';
 import { publicError } from '../lib/model.js';
-import { KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
+import { KNOWN_PROVIDER_IDS } from '../lib/providers/registry.js';
 import type { CachedDataMode, QuotaPercentMode, UnavailableDisplay } from '../lib/presentation.js';
 import { appendLog, syncMinLogLevelFromSettings } from './log.js';
 
 export const MAIN_SCHEMA = 'org.gnome.shell.extensions.genai-usage';
 export const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.genai-usage.provider';
+export const UNOFFICIAL_SOURCE_SETTING = 'allow-unofficial-sources';
 export const REFRESH_CHOICES = [1, 5, 15, 30] as const;
 
 const MAIN_PATH = '/org/gnome/shell/extensions/genai-usage/';
@@ -183,7 +184,7 @@ export class ExtensionSettings {
     }
 
     allowUnofficial(id: string): boolean {
-        return this.provider(id).get_boolean('allow-unofficial-sources');
+        return this.provider(id).get_boolean(UNOFFICIAL_SOURCE_SETTING);
     }
 
     resetAll(): void {

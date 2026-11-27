@@ -8,12 +8,13 @@ import {
     iconDownloadSucceeded,
     isLegacyColoredChatGptSvg,
     normalizeSvgForShellSymbolic,
+    providerIconUrlCandidates,
     shouldRetryIconHttp,
     simplifyCursorOfficialFavicon,
     simpleIconsCdnSvgExtension,
 } from '../src/lib/icons.js';
 import { googleFaviconUrl } from '../src/lib/googleFaviconUrl.js';
-import { catalogEntry, providerIconUrlCandidates } from '../src/lib/providers/catalog.js';
+import { providerById } from '../src/lib/providers/registry.js';
 
 describe('icons', () => {
     test('accepts only https URLs and image payloads', () => {
@@ -52,15 +53,15 @@ describe('icons', () => {
         expect(shouldRetryIconHttp(403, 'text/html', 8000)).toBe(true);
         expect(shouldRetryIconHttp(404, 'text/html', 100)).toBe(false);
         expect(shouldRetryIconHttp(200, 'image/png', 100)).toBe(false);
-        const chatgpt = catalogEntry('chatgpt');
+        const chatgpt = providerById('chatgpt');
         expect(chatgpt).toBeDefined();
-        expect(providerIconUrlCandidates(chatgpt!, '')).toEqual([
+        expect(providerIconUrlCandidates(chatgpt!.defaultIconUrl, '')).toEqual([
             googleFaviconUrl('https://chatgpt.com'),
         ]);
-        expect(providerIconUrlCandidates(catalogEntry('cursor')!, '')).toEqual([
+        expect(providerIconUrlCandidates(providerById('cursor')!.defaultIconUrl, '')).toEqual([
             googleFaviconUrl('https://cursor.com'),
         ]);
-        expect(providerIconUrlCandidates(chatgpt!, 'https://example.test/icon.png')).toEqual([
+        expect(providerIconUrlCandidates(chatgpt!.defaultIconUrl, 'https://example.test/icon.png')).toEqual([
             'https://example.test/icon.png',
         ]);
     });

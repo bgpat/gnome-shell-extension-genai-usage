@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { snapshotFromCodex } from '../src/lib/providers/chatgpt/normalize.js';
+import { normalizeJevBilling } from '../src/lib/providers/jev/normalize.js';
+import { barEntries } from '../src/lib/presentation.js';
 import {
     mergeCursorFailure,
     quotaOptionsFromSummary,
@@ -80,5 +82,80 @@ describe('Cursor normalization', () => {
         expect(sessionFromAccessToken(token, 1_999_999_990)).toBeUndefined();
         expect(tokenFromAuthJson(JSON.stringify({ accessToken: token }))).toBe(token);
         expect(tokenFromAuthJson('{}')).toBeUndefined();
+    });
+});
+
+describe('Jev billing normalization', () => {
+    test('shows the remaining or used share of active grants, including exhausted grants', () => {
+        const snapshot = normalizeJevBilling({
+            billing: {
+                balance: 3,
+                credits: [
+                    { amount: 5, remaining: 3, expiresAt: '2026-12-21T00:00:00Z' },
+                    { amount: 5, remaining: 0, expiresAt: null },
+                    { amount: 20, remaining: 8, expiresAt: '2026-11-01T00:00:00Z' },
+                ],
+            },
+        }, Date.parse('2026-11-27T00:00:00Z'));
+        expect(snapshot?.credits?.balance).toBe('$3.00');
+        const snapshots = new Map([['jev', snapshot!]]);
+        expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide')[0]?.text).toBe('30%');
+        expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide', 'used')[0]?.text).toBe('70%');
+    });
+
+    test('keeps the dollar balance when credits do not explain the whole balance', () => {
+        const snapshot = normalizeJevBilling({ billing: {
+            balance: 5,
+            credits: [{ amount: 2, remaining: 1 }],
+        } }, 1_000);
+        expect(snapshot?.credits?.balance).toBe('$5.00');
+        expect(snapshot?.quotas).toEqual([]);
+    });
+
+    test('shows zero remaining when active credit is fully spent', () => {
+        const snapshot = normalizeJevBilling({ billing: {
+            balance: 0,
+            credits: [{ amount: 5, remaining: 0 }],
+        } }, 1_000);
+        expect(snapshot?.quotas[0]?.remainingPercent).toBe(0);
+    });
+
+    test('preserves available billing information and the reported history', () => {
+        const grant = {
+            amount: 5, remaining: 5, reason: 'free_tier_credit',
+            createdAt: '2026-11-21T00:00:00Z', expiresAt: '2026-12-21T00:00:00Z',
+        };
+        const snapshot = normalizeJevBilling({
+            billing: {
+                plan: 'free_plan', balance: 5, spent: 0, purchased: 0, freeCreditsRemaining: 5,
+                cycleLabel: 'November', resetsInDays: 2, autoPay: null, paymentMethod: null,
+                invoiceEmail: 'billing@example.test', billingAddressValid: false, taxId: null,
+                credits: [grant],
+            },
+            credits: [grant],
+            payments: [{ amount: 10, status: 'Paid', createdAt: '2026-11-22T00:00:00Z' }],
+            budgetAlerts: { ok: true, data: null },
+            spendLimit: { ok: true, data: null },
+            hasMore: true,
+        }, Date.parse('2026-11-28T00:00:00Z'));
+        expect(snapshot?.plan).toBe('Free');
+        expect(snapshot?.billing).toEqual([
+            { label: 'Spent (November)', amount: 0 },
+            { label: 'Purchased credits', amount: 0 },
+            { label: 'Free credits remaining', amount: 5 },
+        ]);
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Auto-recharge', value: 'Off' });
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing email', value: 'billing@example.test' });
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing address', value: 'Not set' });
+        expect(snapshot?.billingOverview?.history).toEqual([
+            { label: 'Payment', value: '$10.00 · 2026-11-22 00:00 UTC · Paid' },
+            { label: 'Monthly credit', value: '$5.00 · $5.00 remaining · Expires 2026-12-21 00:00 UTC · 2026-11-21 00:00 UTC' },
+        ]);
+        expect(snapshot?.billingOverview?.hasMore).toBe(true);
+    });
+
+    test('keeps a missing or invalid balance unavailable', () => {
+        for (const billing of [{}, { balance: null }, { balance: Number.NaN }])
+            expect(normalizeJevBilling({ billing }, 1_000)).toBeUndefined();
     });
 });

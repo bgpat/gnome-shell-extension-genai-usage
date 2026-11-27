@@ -41,8 +41,8 @@ function ensureProxy(): Gio.DBusProxy | null {
         return null;
     }
     if (signalId === 0) {
-        signalId = proxy.connect('g-signal', (_p, sender, name, params) => {
-            if (sender !== LOG_BUS_NAME || name !== 'Changed')
+        signalId = proxy.connect('g-signal', (_p, _sender, name, params) => {
+            if (name !== 'Changed')
                 return;
             const text = variantString(params.get_child_value(0));
             if (text !== null)

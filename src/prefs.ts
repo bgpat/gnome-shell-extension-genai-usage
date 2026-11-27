@@ -43,6 +43,7 @@ export default class GenaiUsagePreferences extends ExtensionPreferences {
         }, 'prefs');
         window.connect('close-request', () => {
             appendLog('info', 'Preferences window closed.', 'user');
+            services.destroy();
             settings.destroy();
             teardownLogPreferences();
             return false;

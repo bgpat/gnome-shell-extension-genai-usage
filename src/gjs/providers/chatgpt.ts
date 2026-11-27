@@ -7,12 +7,13 @@ import { resolveExecutable } from '../executable.js';
 
 export async function refreshChatGpt(options: {
     executablePath: string;
+    executableName: string;
     cancellable: Gio.Cancellable;
     timeoutSec: number;
 }): Promise<UsageSnapshot> {
     let executable: string | null;
     try {
-        executable = await resolveExecutable(options.executablePath, ['codex'], options.cancellable);
+        executable = await resolveExecutable(options.executablePath, [options.executableName], options.cancellable);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return unavailableSnapshot('chatgpt', 'ChatGPT', 'official', publicError(message));

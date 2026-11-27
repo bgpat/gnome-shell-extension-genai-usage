@@ -13,8 +13,9 @@ import {
     tickMenuResetLabels,
     type MenuResetLabelRow,
 } from '../lib/menuPresentation.js';
-import type { UsageSnapshot } from '../lib/model.js';
-import { quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
+import type { BillingDetail, UsageSnapshot } from '../lib/model.js';
+import { providerById } from '../lib/providers/registry.js';
+import { quotaBarText, quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
 
@@ -55,11 +56,18 @@ export function fillProviderSection(
         return resets;
     }
 
+    const showsCreditBalance = providerById(providerId)?.showsCreditBalance;
+    if (showsCreditBalance && snapshot.availability.state === 'unavailable') {
+        box.add_child(new St.Label({ text: snapshot.availability.reason, style_class: 'genai-usage-muted' }));
+        return resets;
+    }
+
     if (showPlan && snapshot.plan) {
         box.add_child(new St.Label({ text: `Plan: ${snapshot.plan}`, style_class: 'genai-usage-muted' }));
     }
 
-    if (snapshot.quotas.length === 0 && snapshot.availability.state === 'available') {
+    if (snapshot.quotas.length === 0 && !showsCreditBalance
+        && snapshot.availability.state === 'available') {
         box.add_child(new St.Label({
             text: 'Quota data is unavailable',
             style_class: 'genai-usage-muted',
@@ -68,11 +76,18 @@ export function fillProviderSection(
 
     const percentMode = settings.quotaPercentMode;
     const quotaBars: QuotaBarWidgets[] = [];
+    const balance = showsCreditBalance ? snapshot.credits?.balance : undefined;
+    let balanceDisplayed = false;
     for (const quota of snapshot.quotas) {
-        box.add_child(new St.Label({ text: quotaMenuLineText(quota, percentMode) }));
+        const creditPercent = balance && quota.id === 'credits' ? quotaBarText(quota, percentMode) : undefined;
+        const text = creditPercent ? `Credits: ${balance} (${creditPercent})` : quotaMenuLineText(quota, percentMode);
+        balanceDisplayed ||= creditPercent !== undefined;
+        box.add_child(new St.Label({ text }));
         const displayPercent = quotaPercentForDisplay(quota, percentMode);
         if (displayPercent !== undefined)
             quotaBars.push(appendQuotaBar(box, displayPercent));
+        if (showsCreditBalance && quota.resetsAt === undefined)
+            continue;
         const reset = new St.Label({ style_class: 'genai-usage-muted' });
         reset.text = menuResetLabelText(quota.resetsAt, nowMs);
         box.add_child(reset);
@@ -80,7 +95,10 @@ export function fillProviderSection(
     }
     layoutSectionQuotaBars(box, quotaBars);
 
-    if (snapshot.credits) {
+    if (balance) {
+        if (!balanceDisplayed)
+            box.add_child(new St.Label({ text: `Credits: ${balance}`, style_class: 'genai-usage-muted' }));
+    } else if (snapshot.credits) {
         const parts: string[] = [];
         if (snapshot.credits.unlimited)
             parts.push('unlimited');
@@ -111,7 +129,37 @@ export function fillProviderSection(
     refreshed.text = menuRefreshLabelText(snapshot.refreshedAt, nowMs);
     box.add_child(refreshed);
     resets.push({ label: refreshed, refreshedAt: snapshot.refreshedAt, kind: 'refresh' });
+    if (showBilling && snapshot.billingOverview) {
+        const { details, history, hasMore } = snapshot.billingOverview;
+        appendBillingSubmenu(section, 'Billing details', details);
+        appendBillingSubmenu(section, 'Billing history', history, hasMore);
+    }
     return resets;
+}
+
+function appendBillingSubmenu(
+    section: PopupMenu.PopupMenuSection,
+    title: string,
+    details: BillingDetail[],
+    hasMore = false,
+): void {
+    if (details.length === 0 && !hasMore)
+        return;
+    const submenu = new PopupMenu.PopupSubMenuMenuItem(title);
+    for (const { label, value } of details) {
+        const row = new PopupMenu.PopupMenuItem(`${label}: ${value}`, { reactive: false, can_focus: false });
+        row.label.style = 'max-width: 360px;';
+        row.label.clutter_text.line_wrap = true;
+        submenu.menu.addMenuItem(row);
+    }
+    if (hasMore) {
+        const row = new PopupMenu.PopupMenuItem('More entries are available in TypeSafe Billing', {
+            reactive: false,
+            can_focus: false,
+        });
+        submenu.menu.addMenuItem(row);
+    }
+    section.addMenuItem(submenu);
 }
 
 interface QuotaBarWidgets {

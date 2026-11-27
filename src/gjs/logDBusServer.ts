@@ -67,28 +67,30 @@ export function startLogService(): void {
         Gio.BusType.SESSION,
         LOG_BUS_NAME,
         Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
+        null,
         (conn, _name) => {
-            connection = conn;
-            exported?.export(conn, LOG_OBJECT_PATH);
-            attachUsageService(conn);
+            runShellSafe('Export Log and Usage D-Bus objects', () => {
+                connection = conn;
+                exported?.export(conn, LOG_OBJECT_PATH);
+                attachUsageService(conn);
+            });
         },
-        (_conn, _name) => {
-            detachUsageService();
-            connection = null;
-        },
-        () => {
-            detachUsageService();
-            connection = null;
-        },
+        unexportServices,
     );
 }
 
-export function stopLogService(): void {
+function unexportServices(): void {
     detachUsageService();
+    if (connection)
+        exported?.unexport();
+    connection = null;
+}
+
+export function stopLogService(): void {
+    unexportServices();
     if (busOwnerId !== 0) {
         Gio.bus_unown_name(busOwnerId);
         busOwnerId = 0;
     }
-    connection = null;
     exported = null;
 }

@@ -5,7 +5,8 @@ import { formatRemaining } from '../lib/format.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import { selectQuota } from '../lib/quota.js';
 import { terminateCodexProcesses } from '../gjs/codexAppServer.js';
-import { refreshProvider } from '../gjs/providers/registry.js';
+import { refreshProvider } from '../gjs/providers/refresh.js';
+import { providerById } from '../lib/providers/registry.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { appendLog } from '../gjs/log.js';
 import { terminateTrackedProcesses } from '../gjs/subprocess.js';
@@ -122,17 +123,23 @@ export class RefreshScheduler {
         const snapshot = await refreshProvider(id, this.settings, this.cancellable);
         if (this.cancellable.is_cancelled())
             return;
-        this.store(id, snapshot);
+        const requiresUnofficial = providerById(id)?.requiresUnofficial ?? false;
+        const sourceEnabled = !requiresUnofficial || this.settings.allowUnofficial(id);
+        if (requiresUnofficial && snapshot.availability.state === 'available'
+            && (!this.settings.enabled(id) || !sourceEnabled))
+            return;
+        this.store(id, snapshot, sourceEnabled);
     }
 
-    private store(id: string, snapshot: UsageSnapshot): void {
+    private store(id: string, snapshot: UsageSnapshot, sourceEnabled: boolean): void {
         const unavailableReason = snapshot.availability.state === 'unavailable'
             ? snapshot.availability.reason
             : undefined;
         const previous = this.views.get(id)?.snapshot;
         const keepCache = (unavailableReason !== undefined || snapshot.error !== undefined)
             && this.settings.cachedData === 'show'
-            && previous?.availability.state === 'available';
+            && previous?.availability.state === 'available'
+            && sourceEnabled;
         if (keepCache) {
             appendLog('info', `${id} refresh: keeping cached snapshot after failure`, 'background');
         }

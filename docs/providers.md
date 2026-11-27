@@ -58,6 +58,10 @@ On-demand billing is shown only when `individualUsage.onDemand.used` or, if that
 
 Pooled team usage is used only when no individual percentage exists and both `teamUsage.pooled.used` and `limit` are numbers with a positive limit.
 
+## Jev (TypeSafe)
+
+See the [Jev setup guide](jev.md) for the billing source, authentication, and display behavior.
+
 ## Not implemented
 
 - Browser cookie import

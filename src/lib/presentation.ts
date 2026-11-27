@@ -1,6 +1,6 @@
 import { formatRemaining, usedPercent } from './format.js';
 import type { QuotaWindow, UsageSnapshot } from './model.js';
-import { catalogEntry } from './providers/catalog.js';
+import { providerById } from './providers/registry.js';
 import { selectQuota } from './quota.js';
 
 export type UnavailableDisplay = 'hide' | 'placeholder' | 'icon-only';
@@ -50,7 +50,7 @@ export function barEntries(
     const entries: BarEntry[] = [];
     for (const id of ids) {
         const snapshot = snapshots.get(id);
-        const name = snapshot?.displayName ?? catalogEntry(id)?.displayName ?? id;
+        const name = snapshot?.displayName ?? providerById(id)?.displayName ?? id;
         const quota = snapshot?.availability.state === 'available'
             ? selectQuota(snapshot.quotas, quotaMode(id))
             : undefined;

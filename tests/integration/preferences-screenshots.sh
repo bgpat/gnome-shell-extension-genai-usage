@@ -5,7 +5,14 @@ mkdir -p "${1:?Usage: preferences-screenshots.sh OUTPUT_DIRECTORY}"
 output=$(CDPATH= cd -- "$1" && pwd)
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+cleanup() {
+    # The document portal may still hold its FUSE mount after D-Bus exits.
+    if command -v fusermount3 >/dev/null 2>&1; then
+        fusermount3 -uz "$work/runtime/doc" 2>/dev/null || true
+    fi
+    rm -rf "$work"
+}
+trap cleanup EXIT
 
 cd "$root"
 bun run pack
