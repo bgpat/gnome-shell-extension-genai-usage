@@ -345,7 +345,7 @@ function buildColumnHeader(
 function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
     if (entry.id === 'jev') {
         return 'Uses a TypeSafe console session to read available credits. '
-            + '<a href="https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/2d0bbb1d89abfad43ef924ad96cbd4c14f0015b0/README.md#set-up-jev">README</a>';
+            + '<a href="https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/16ab6f64bcb2512f5b9f0b84018454283a3a0516/README.md#set-up-jev">README</a>';
     }
     if (entry.supportsUnofficial)
         return 'Quota details from cursor.com are off until you allow the unofficial source.';
