@@ -13,6 +13,7 @@ export interface ProviderCatalogEntry {
     executableNames: string[];
     staticQuotaModes?: QuotaMode[];
     dynamicQuotas: boolean;
+    showsCreditBalance?: boolean;
     supportsUnofficial: boolean;
 }
 
@@ -36,6 +37,15 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
         defaultIconUrl: googleFaviconUrl('https://cursor.com'),
         executableNames: ['cursor-agent'],
         dynamicQuotas: true,
+        supportsUnofficial: true,
+    },
+    {
+        id: 'jev',
+        displayName: 'Jev',
+        defaultIconUrl: googleFaviconUrl('https://typesafe.ai'),
+        executableNames: [],
+        dynamicQuotas: false,
+        showsCreditBalance: true,
         supportsUnofficial: true,
     },
 ];

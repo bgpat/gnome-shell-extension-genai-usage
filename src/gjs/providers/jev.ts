@@ -1,0 +1,50 @@
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+
+import { unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
+import { normalizeJevBilling } from '../../lib/providers/jev/normalize.js';
+import { configHome, readFileText } from '../files.js';
+import { httpGet } from '../http.js';
+
+const CONSOLE = 'https://console.typesafe.ai';
+
+export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Cancellable): Promise<UsageSnapshot> {
+    const unavailable = (reason: string) => unavailableSnapshot('jev', 'Jev', 'unofficial', reason);
+    if (!allowUnofficial)
+        return unavailable('Enable the unofficial usage source for Jev in Services');
+
+    const path = GLib.build_filenamev([configHome(), 'genai-usage', 'jev-cookie']);
+    const file = Gio.File.new_for_path(path);
+    const cookie = (await readFileText(file, cancellable))?.trim().replace(/^Cookie:[ \t]*/i, '');
+    if (!cookie || !cookie.includes('=') || /[^\x20-\x7e]/.test(cookie))
+        return unavailable('Set up the TypeSafe console cookie file as described in the README');
+
+    try {
+        const response = await httpGet({
+            url: `${CONSOLE}/api/billing/overview`,
+            noRedirect: true,
+            headers: {
+                Accept: 'application/json',
+                Cookie: cookie,
+                Origin: CONSOLE,
+                Referer: `${CONSOLE}/billing`,
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Dest': 'empty',
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+            },
+            cancellable,
+            timeoutSec: 25,
+        });
+        if (response.status === 401 || (response.status >= 300 && response.status < 400)
+            || (response.status === 200 && response.contentType === 'text/html'))
+            return unavailable('Sign in to the TypeSafe console again and update the cookie file');
+        if (response.status !== 200)
+            return unavailable(`TypeSafe billing request failed (HTTP ${response.status})`);
+
+        return normalizeJevBilling(JSON.parse(response.body), Date.now())
+            ?? unavailable('TypeSafe billing response did not contain an available credit balance');
+    } catch {
+        return unavailable('Could not read the TypeSafe billing response');
+    }
+}

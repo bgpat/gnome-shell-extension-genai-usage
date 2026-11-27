@@ -122,6 +122,9 @@ export class RefreshScheduler {
         const snapshot = await refreshProvider(id, this.settings, this.cancellable);
         if (this.cancellable.is_cancelled())
             return;
+        if (id === 'jev' && snapshot.availability.state === 'available'
+            && (!this.settings.enabled(id) || !this.settings.allowUnofficial(id)))
+            return;
         this.store(id, snapshot);
     }
 
@@ -132,7 +135,8 @@ export class RefreshScheduler {
         const previous = this.views.get(id)?.snapshot;
         const keepCache = (unavailableReason !== undefined || snapshot.error !== undefined)
             && this.settings.cachedData === 'show'
-            && previous?.availability.state === 'available';
+            && previous?.availability.state === 'available'
+            && (id !== 'jev' || this.settings.allowUnofficial(id));
         if (keepCache) {
             appendLog('info', `${id} refresh: keeping cached snapshot after failure`, 'background');
         }

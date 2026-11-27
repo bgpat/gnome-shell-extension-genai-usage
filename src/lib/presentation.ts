@@ -54,7 +54,10 @@ export function barEntries(
         const quota = snapshot?.availability.state === 'available'
             ? selectQuota(snapshot.quotas, quotaMode(id))
             : undefined;
-        const text = quotaBarText(quota, percentMode);
+        const balance = snapshot?.availability.state === 'available' && catalogEntry(id)?.showsCreditBalance
+            ? snapshot.credits?.balance
+            : undefined;
+        const text = balance ?? quotaBarText(quota, percentMode);
         if (text) {
             entries.push({ providerId: id, displayName: name, text, accessible: `${name} ${text}` });
             continue;

@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
 
+import { publicError } from '../lib/model.js';
 import { appendLog } from './log.js';
 
 const DEFAULT_USER_AGENT =
@@ -17,6 +18,7 @@ export interface HttpResponse {
 export function httpGet(options: {
     url: string;
     headers?: Record<string, string>;
+    noRedirect?: boolean;
     timeoutSec: number;
     cancellable: Gio.Cancellable;
 }): Promise<HttpResponse> {
@@ -24,6 +26,8 @@ export function httpGet(options: {
     const message = Soup.Message.new('GET', options.url);
     if (!message)
         return Promise.reject(new Error('Could not create HTTP request'));
+    if (options.noRedirect)
+        message.add_flags(Soup.MessageFlags.NO_REDIRECT);
     const headers = { 'User-Agent': DEFAULT_USER_AGENT, ...options.headers };
     for (const [name, value] of Object.entries(headers))
         message.request_headers.append(name, value);
@@ -52,7 +56,7 @@ export function httpGet(options: {
                 });
             } catch (error) {
                 const messageText = error instanceof Error ? error.message : String(error);
-                appendLog('error', `HTTP GET ${options.url} failed: ${messageText}`, 'background');
+                appendLog('error', `HTTP GET ${options.url} failed: ${options.headers?.Cookie ? 'request failed' : publicError(messageText)}`, 'background');
                 reject(error);
             }
         });

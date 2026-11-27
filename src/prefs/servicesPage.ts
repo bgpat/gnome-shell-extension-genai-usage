@@ -65,7 +65,8 @@ function buildProviderColumn(
         hexpand: true,
         placeholder_text: entry.executableNames[0] ?? 'Executable path',
     });
-    provider.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
+    if (entry.executableNames.length > 0)
+        provider.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
 
     let quotaModel = new Gtk.StringList();
     const quota = Gtk.DropDown.new(quotaModel, null);
@@ -77,7 +78,7 @@ function buildProviderColumn(
         modes.splice(0, modes.length, ...next);
         const model = new Gtk.StringList();
         if (modes.length === 0)
-            model.append('No quota reported');
+            model.append(entry.showsCreditBalance ? 'Available credits' : 'No quota reported');
         else {
             for (const mode of modes)
                 model.append(mode.label);
@@ -154,7 +155,7 @@ function buildProviderColumn(
             if (unofficial!.active)
                 appendLog('info', `Services: unofficial usage source enabled for ${entry.id}.`, 'user');
             syncDynamicQuotaModes();
-            if (!unofficial!.active)
+            if (!entry.dynamicQuotas || !unofficial!.active)
                 return;
             void refreshProvider(entry.id, settings, cancellable).then(snapshot => {
                 if (cancellable.is_cancelled())
@@ -162,6 +163,8 @@ function buildProviderColumn(
                 const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
                 if (fromSnapshot.length > 0)
                     applyModes(fromSnapshot);
+            }).catch(() => {
+                appendLog('error', `Services: quota refresh failed for ${entry.id}.`, 'background');
             });
         });
     }
@@ -229,7 +232,7 @@ function buildServicesMatrix(
         },
         {
             label: 'Executable',
-            cell: column => column.cell.executable,
+            cell: column => column.entry.executableNames.length > 0 ? column.cell.executable : matrixNaCell(),
         },
         {
             label: 'Top bar quota',
@@ -238,11 +241,11 @@ function buildServicesMatrix(
         },
         {
             label: 'Show subscription plan',
-            cell: column => centerSwitch(column.cell.showPlan),
+            cell: column => column.entry.showsCreditBalance ? matrixNaCell() : centerSwitch(column.cell.showPlan),
         },
         {
             label: 'Show billing',
-            cell: column => centerSwitch(column.cell.showBilling),
+            cell: column => column.entry.showsCreditBalance ? matrixNaCell() : centerSwitch(column.cell.showBilling),
         },
         {
             label: 'Icon URL',
@@ -250,7 +253,7 @@ function buildServicesMatrix(
         },
         {
             label: 'Allow unofficial usage source',
-            tooltip: 'Reads the local Cursor session and requests cursor.com/api/usage-summary. This is not an official Cursor CLI feature.',
+            tooltip: 'Allows Cursor and Jev to read usage from their web consoles.',
             cell: column => column.cell.unofficial
                 ? centerSwitch(column.cell.unofficial)
                 : matrixNaCell(),
@@ -338,6 +341,8 @@ function buildColumnHeader(
 }
 
 function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
+    if (entry.showsCreditBalance)
+        return 'Uses a TypeSafe console session to read available credits. See the README for setup.';
     if (entry.supportsUnofficial)
         return 'Quota details from cursor.com are off until you allow the unofficial source.';
     if (entry.id === 'chatgpt')

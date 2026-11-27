@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { snapshotFromCodex } from '../src/lib/providers/chatgpt/normalize.js';
+import { normalizeJevBilling } from '../src/lib/providers/jev/normalize.js';
+import { barEntries } from '../src/lib/presentation.js';
 import {
     mergeCursorFailure,
     quotaOptionsFromSummary,
@@ -80,5 +82,23 @@ describe('Cursor normalization', () => {
         expect(sessionFromAccessToken(token, 1_999_999_990)).toBeUndefined();
         expect(tokenFromAuthJson(JSON.stringify({ accessToken: token }))).toBe(token);
         expect(tokenFromAuthJson('{}')).toBeUndefined();
+    });
+});
+
+describe('Jev billing normalization', () => {
+    test('shows available credits in the bar, including a zero balance', () => {
+        for (const [balance, text] of [[5, 'USD 5.00'], [0, 'USD 0.00']] as const) {
+            const snapshot = normalizeJevBilling({ billing: { balance } }, 1_000);
+            expect(snapshot).toBeDefined();
+            expect(snapshot?.credits?.balance).toBe(text);
+            expect(snapshot?.quotas).toEqual([]);
+            const entries = barEntries(['jev'], new Map([['jev', snapshot!]]), () => '', 'hide', 'used');
+            expect(entries[0]?.text).toBe(text);
+        }
+    });
+
+    test('keeps a missing or invalid balance unavailable', () => {
+        for (const billing of [{}, { balance: null }, { balance: Number.NaN }])
+            expect(normalizeJevBilling({ billing }, 1_000)).toBeUndefined();
     });
 });

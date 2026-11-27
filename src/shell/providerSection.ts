@@ -14,6 +14,7 @@ import {
     type MenuResetLabelRow,
 } from '../lib/menuPresentation.js';
 import type { UsageSnapshot } from '../lib/model.js';
+import { catalogEntry } from '../lib/providers/catalog.js';
 import { quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
@@ -55,11 +56,17 @@ export function fillProviderSection(
         return resets;
     }
 
+    if (catalogEntry(providerId)?.showsCreditBalance && snapshot.availability.state === 'unavailable') {
+        box.add_child(new St.Label({ text: snapshot.availability.reason, style_class: 'genai-usage-muted' }));
+        return resets;
+    }
+
     if (showPlan && snapshot.plan) {
         box.add_child(new St.Label({ text: `Plan: ${snapshot.plan}`, style_class: 'genai-usage-muted' }));
     }
 
-    if (snapshot.quotas.length === 0 && snapshot.availability.state === 'available') {
+    if (snapshot.quotas.length === 0 && !catalogEntry(providerId)?.showsCreditBalance
+        && snapshot.availability.state === 'available') {
         box.add_child(new St.Label({
             text: 'Quota data is unavailable',
             style_class: 'genai-usage-muted',

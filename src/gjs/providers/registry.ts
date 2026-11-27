@@ -6,6 +6,7 @@ import { appendLog } from '../log.js';
 import type { ExtensionSettings } from '../settings.js';
 import { refreshChatGpt } from './chatgpt.js';
 import { refreshCursor } from './cursor.js';
+import { refreshJev } from './jev.js';
 
 export { PROVIDER_CATALOG, catalogEntry };
 
@@ -36,6 +37,8 @@ export async function refreshProvider(
                 timeoutSec: 25,
             });
         }
+        if (id === 'jev')
+            return await refreshJev(settings.allowUnofficial(id), cancellable);
         appendLog('warn', `refreshProvider: ${id} not implemented`, 'background');
         return unavailableSnapshot(id, entry.displayName, 'official', 'Provider is not implemented');
     } catch (error) {
