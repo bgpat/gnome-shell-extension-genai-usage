@@ -25,6 +25,35 @@ jobs:
       - name: Headless smoke
         run: sh tests/integration/smoke.sh
 
+  preferences:
+    name: Preferences screenshots (GNOME ${{ matrix.gnome }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            gnome: 46
+          - os: ubuntu-26.04
+            gnome: 50
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install screenshot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-shell gjs xvfb xauth imagemagick unzip zip
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Capture Preferences tabs
+        run: sh tests/integration/preferences-screenshots.sh "$RUNNER_TEMP/preferences-screenshots"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: preferences-gnome-${{ matrix.gnome }}
+          path: ${{ runner.temp }}/preferences-screenshots/*.png
+          if-no-files-found: error
+
   fedora-compat:
     name: fedora ${{ matrix.fedora }}
     runs-on: ubuntu-latest
@@ -48,13 +77,14 @@ jobs:
 
   report:
     name: Shell versions
-    needs: [gnome-smoke, fedora-compat]
+    needs: [gnome-smoke, fedora-compat, preferences]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate shell version checks
         env:
           GNOME_SMOKE_RESULT: ${{ needs.gnome-smoke.result }}
+          PREFERENCES_RESULT: ${{ needs.preferences.result }}
           FEDORA_COMPAT_RESULT: ${{ needs.fedora-compat.result }}
         run: |
           ok=1
@@ -64,6 +94,10 @@ jobs:
           fi
           if [ "$FEDORA_COMPAT_RESULT" != "success" ]; then
             echo "::error::Fedora compatibility matrix result: $FEDORA_COMPAT_RESULT"
+            ok=0
+          fi
+          if [ "$PREFERENCES_RESULT" != "success" ]; then
+            echo "::error::Preferences screenshots result: $PREFERENCES_RESULT"
             ok=0
           fi
           if [ "$ok" -eq 0 ]; then
