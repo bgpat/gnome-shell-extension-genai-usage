@@ -63,8 +63,6 @@ function buildProviderColumn(
 
     const executable = new Gtk.Entry({
         hexpand: true,
-        width_chars: 9,
-        max_width_chars: 18,
         placeholder_text: entry.executableNames[0] ?? 'Executable path',
     });
     if (entry.executableNames.length > 0)
@@ -142,8 +140,6 @@ function buildProviderColumn(
 
     const iconUrl = new Gtk.Entry({
         hexpand: true,
-        width_chars: 9,
-        max_width_chars: 18,
         placeholder_text: 'HTTPS icon URL (optional)',
     });
     iconUrl.set_tooltip_text(
@@ -205,7 +201,7 @@ function buildServicesMatrix(
     cancellable: Gio.Cancellable,
 ): Gtk.Grid {
     const grid = new Gtk.Grid({
-        column_spacing: 12,
+        column_spacing: 20,
         row_spacing: 14,
         margin_top: 8,
         margin_bottom: 4,
@@ -284,7 +280,7 @@ function matrixRowLabel(text: string, tooltip?: string): Gtk.Widget {
     const label = new Gtk.Label({
         label: text,
         xalign: 0,
-        yalign: 0.5,
+        yalign: Gtk.Align.CENTER,
         wrap: true,
         max_width_chars: 16,
     });
@@ -295,7 +291,7 @@ function matrixRowLabel(text: string, tooltip?: string): Gtk.Widget {
 }
 
 function matrixNaCell(): Gtk.Widget {
-    const label = new Gtk.Label({ label: '—', xalign: 0.5, opacity: 0.5 });
+    const label = new Gtk.Label({ label: '—', xalign: Gtk.Align.CENTER, opacity: 0.5 });
     label.add_css_class('genai-services-matrix-na');
     return label;
 }
