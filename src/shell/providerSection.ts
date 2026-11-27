@@ -80,6 +80,8 @@ export function fillProviderSection(
         const displayPercent = quotaPercentForDisplay(quota, percentMode);
         if (displayPercent !== undefined)
             quotaBars.push(appendQuotaBar(box, displayPercent));
+        if (catalogEntry(providerId)?.showsCreditBalance && quota.resetsAt === undefined)
+            continue;
         const reset = new St.Label({ style_class: 'genai-usage-muted' });
         reset.text = menuResetLabelText(quota.resetsAt, nowMs);
         box.add_child(reset);

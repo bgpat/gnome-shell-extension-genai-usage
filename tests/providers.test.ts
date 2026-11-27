@@ -86,15 +86,38 @@ describe('Cursor normalization', () => {
 });
 
 describe('Jev billing normalization', () => {
-    test('shows available credits in the bar, including a zero balance', () => {
-        for (const [balance, text] of [[5, 'USD 5.00'], [0, 'USD 0.00']] as const) {
-            const snapshot = normalizeJevBilling({ billing: { balance } }, 1_000);
-            expect(snapshot).toBeDefined();
-            expect(snapshot?.credits?.balance).toBe(text);
-            expect(snapshot?.quotas).toEqual([]);
-            const entries = barEntries(['jev'], new Map([['jev', snapshot!]]), () => '', 'hide', 'used');
-            expect(entries[0]?.text).toBe(text);
-        }
+    test('shows the remaining or used share of active grants, including exhausted grants', () => {
+        const snapshot = normalizeJevBilling({
+            billing: {
+                balance: 3,
+                credits: [
+                    { amount: 5, remaining: 3, expiresAt: '2026-12-21T00:00:00Z' },
+                    { amount: 5, remaining: 0, expiresAt: null },
+                    { amount: 20, remaining: 8, expiresAt: '2026-11-01T00:00:00Z' },
+                ],
+            },
+        }, Date.parse('2026-11-27T00:00:00Z'));
+        expect(snapshot?.credits?.balance).toBe('USD 3.00');
+        const snapshots = new Map([['jev', snapshot!]]);
+        expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide')[0]?.text).toBe('30%');
+        expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide', 'used')[0]?.text).toBe('70%');
+    });
+
+    test('keeps the dollar balance when credits do not explain the whole balance', () => {
+        const snapshot = normalizeJevBilling({ billing: {
+            balance: 5,
+            credits: [{ amount: 2, remaining: 1 }],
+        } }, 1_000);
+        expect(snapshot?.credits?.balance).toBe('USD 5.00');
+        expect(snapshot?.quotas).toEqual([]);
+    });
+
+    test('shows zero remaining when active credit is fully spent', () => {
+        const snapshot = normalizeJevBilling({ billing: {
+            balance: 0,
+            credits: [{ amount: 5, remaining: 0 }],
+        } }, 1_000);
+        expect(snapshot?.quotas[0]?.remainingPercent).toBe(0);
     });
 
     test('keeps a missing or invalid balance unavailable', () => {

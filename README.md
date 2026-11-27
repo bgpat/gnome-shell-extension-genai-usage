@@ -11,7 +11,7 @@ UUID: `genai-usage@bgpat.github.io`
 | ChatGPT | Official `codex app-server` (`account/read`, `account/rateLimits/read`) | Yes, when Codex returns `planType` | Five-hour and weekly windows when `windowDurationMins` is 300 or 10080. Other windows use a generic label. | `resetsAt` | `credits.balance` when present | Not provided by these methods |
 | Cursor | Official `cursor-agent status` and `about` | `subscriptionTier` when the CLI returns it | Not available | Not available | Not available | Not available |
 | Cursor, optional | Unofficial `GET https://cursor.com/api/usage-summary` | `membershipType` | Plan, Auto, and API percentages when those fields are present | Billing cycle end | Not provided by this response | On-demand amounts when `individualUsage.onDemand` is present |
-| Jev (TypeSafe), optional | TypeSafe console billing overview (unofficial) | — | — | — | Available credits in USD | — |
+| Jev (TypeSafe), optional | TypeSafe console billing overview (unofficial) | — | Share of unexpired credits when the grants account for the balance | — | Available credits in USD | — |
 
 Missing values stay missing. They are not shown as zero.
 
@@ -36,7 +36,7 @@ Provider icons are downloaded over HTTPS when **Download provider icons** is on 
 3. Save the value as a single line in `${XDG_CONFIG_HOME:-$HOME/.config}/genai-usage/jev-cookie`. Keep the file private (`chmod 600`) and replace its contents when your console session expires.
 4. In **Services**, turn on **Show in top bar** and **Allow unofficial usage source** for Jev. Use **Refresh** in the top-bar menu after adding or replacing the cookie.
 
-Jev displays the **Available credits** balance from Billing in the top bar, dropdown menu, and General preview. The extension sends the session cookie only to the TypeSafe billing overview endpoint. The Jev inference API key cannot read this balance.
+Jev shows the percentage of unexpired credits remaining or used in the top bar, dropdown menu, and General preview. The menu also shows the **Available credits** balance in USD. The percentage is available when the credit grants account for the full balance. The extension sends the session cookie only to the TypeSafe billing overview endpoint. The Jev inference API key cannot read this balance.
 
 ## Install from a package
 
