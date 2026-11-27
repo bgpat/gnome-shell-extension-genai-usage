@@ -31,7 +31,7 @@ export default class GenaiUsagePreferences extends ExtensionPreferences {
         const log = createLogPage();
         const pages = [general.page, services.page, log.page];
         for (const page of pages)
-            tunePreferencesPage(page);
+            page.vexpand = true;
         window.add(general.page);
         window.add(services.page);
         window.add(log.page);
@@ -48,16 +48,6 @@ export default class GenaiUsagePreferences extends ExtensionPreferences {
             return false;
         });
     }
-}
-
-/** Let the page fill the window and scroll when content is taller than the viewport. */
-function tunePreferencesPage(page: Adw.PreferencesPage): void {
-    page.vexpand = true;
-    const tune = () => {
-        tuneScrolledWindows(page);
-    };
-    page.connect('map', tune);
-    tune();
 }
 
 /** Keep each page's Adw.Clamp in sync with the window width (default clamp caps at 600px). */
@@ -87,15 +77,6 @@ function applyClampWidth(root: Gtk.Widget, width: number): void {
     }
     for (let child = root.get_first_child(); child; child = child.get_next_sibling())
         applyClampWidth(child, width);
-}
-
-/** Only the page viewport scroll — not ComboRow popovers or nested log view. */
-function tuneScrolledWindows(page: Adw.PreferencesPage): void {
-    const scroll = page.get_first_child();
-    if (scroll instanceof Gtk.ScrolledWindow) {
-        scroll.propagate_natural_height = false;
-        scroll.propagate_natural_width = false;
-    }
 }
 
 function loadPrefsStyles(dir: Gio.File, window: Gtk.Window): void {
