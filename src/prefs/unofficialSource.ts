@@ -5,10 +5,10 @@ import Gtk from 'gi://Gtk';
 import { appendLog } from '../gjs/log.js';
 import { UNOFFICIAL_SOURCE_SETTING } from '../gjs/settings.js';
 import { publicError } from '../lib/model.js';
-import type { ProviderCatalogEntry } from '../lib/providers/catalog.js';
+import type { Provider } from '../lib/providers/provider.js';
 
 export function createUnofficialSourceSwitch(
-    entry: ProviderCatalogEntry,
+    { id, displayName }: Provider,
     settings: Gio.Settings,
     changeUsageSource: (enable: boolean, parent: Gtk.Window) => Promise<boolean>,
     cancellable: Gio.Cancellable,
@@ -31,13 +31,13 @@ export function createUnofficialSourceSwitch(
         reload();
         try {
             if (await changeUsageSource(enable, parent) && !cancellable.is_cancelled())
-                appendLog('info', `Services: unofficial usage source ${enable ? 'enabled' : 'disabled'} for ${entry.id}.`, 'user');
+                appendLog('info', `Services: unofficial usage source ${enable ? 'enabled' : 'disabled'} for ${id}.`, 'user');
         } catch (error) {
             if (cancellable.is_cancelled())
                 return;
             const reason = publicError(error instanceof Error ? error.message : 'The usage source could not be updated.');
-            appendLog('warn', `Services: ${entry.id} unofficial usage source was not changed. ${reason}`, 'user');
-            const dialog = Adw.MessageDialog.new(parent, `${entry.displayName} usage source`, reason);
+            appendLog('warn', `Services: ${id} unofficial usage source was not changed. ${reason}`, 'user');
+            const dialog = Adw.MessageDialog.new(parent, `${displayName} usage source`, reason);
             dialog.modal = true;
             dialog.add_response('close', 'Close');
             dialog.connect('response', () => dialog.destroy());

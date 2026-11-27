@@ -14,7 +14,7 @@ import {
     type MenuResetLabelRow,
 } from '../lib/menuPresentation.js';
 import type { BillingDetail, UsageSnapshot } from '../lib/model.js';
-import { catalogEntry } from '../lib/providers/catalog.js';
+import { providerById } from '../lib/providers/registry.js';
 import { quotaBarText, quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
@@ -56,7 +56,7 @@ export function fillProviderSection(
         return resets;
     }
 
-    const showsCreditBalance = catalogEntry(providerId)?.showsCreditBalance;
+    const showsCreditBalance = providerById(providerId)?.showsCreditBalance;
     if (showsCreditBalance && snapshot.availability.state === 'unavailable') {
         box.add_child(new St.Label({ text: snapshot.availability.reason, style_class: 'genai-usage-muted' }));
         return resets;

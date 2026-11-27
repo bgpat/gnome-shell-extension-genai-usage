@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-import { KNOWN_PROVIDER_IDS } from '../src/lib/providers/catalog.js';
+import { KNOWN_PROVIDER_IDS } from '../src/lib/providers/registry.js';
 
 const schemaDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'schemas');
 

@@ -2,11 +2,10 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-import type { Provider } from '../gjs/providers/provider.js';
-import { PROVIDERS } from '../gjs/providers/registry.js';
 import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
-import type { QuotaMode } from '../lib/providers/catalog.js';
+import type { Provider, QuotaMode } from '../lib/providers/provider.js';
+import { PROVIDERS } from '../lib/providers/registry.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
 import { promptForValidatedSecret } from './secretValidationDialog.js';
@@ -69,8 +68,8 @@ function buildProviderColumn(
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): ProviderColumn {
-    const { entry, preferences } = provider;
-    const providerSettings = settings.provider(entry.id);
+    const { id, preferences } = provider;
+    const providerSettings = settings.provider(id);
     const initialModes = preferences.quotaModes ?? [];
     let modes = initialModes;
     let updatingQuota = false;
@@ -100,7 +99,7 @@ function buildProviderColumn(
         }
         quota.model = model;
         quota.sensitive = modes.length > 0;
-        const current = settings.topBarQuota(entry.id);
+        const current = settings.topBarQuota(id);
         const index = modes.findIndex(mode => mode.id === current);
         quota.selected = index >= 0 ? index : 0;
         updatingQuota = false;
@@ -112,8 +111,8 @@ function buildProviderColumn(
         const mode = modes[quota.selected];
         if (!mode)
             return;
-        if (mode.id !== settings.topBarQuota(entry.id))
-            settings.setTopBarQuota(entry.id, mode.id);
+        if (mode.id !== settings.topBarQuota(id))
+            settings.setTopBarQuota(id, mode.id);
     });
 
     let discoveringQuotas = false;
@@ -121,12 +120,12 @@ function buildProviderColumn(
     const syncDynamicQuotaModes = () => {
         if (!unofficialQuotas)
             return;
-        if (!settings.allowUnofficial(entry.id)) {
+        if (!settings.allowUnofficial(id)) {
             applyModes([]);
             return;
         }
         if (shellSnapshotsAvailable()) {
-            const snapshot = snapshotsFromShell().get(entry.id);
+            const snapshot = snapshotsFromShell().get(id);
             if (snapshot) {
                 const fromSnapshot = unofficialQuotas.fromSnapshot(snapshot);
                 if (fromSnapshot.length > 0)
@@ -138,7 +137,7 @@ function buildProviderColumn(
             return;
         discoveringQuotas = true;
         void unofficialQuotas.discover(cancellable).then(found => {
-            if (!cancellable.is_cancelled() && settings.allowUnofficial(entry.id))
+            if (!cancellable.is_cancelled() && settings.allowUnofficial(id))
                 applyModes(found);
         }).catch(() => {
             if (!cancellable.is_cancelled())
@@ -163,7 +162,7 @@ function buildProviderColumn(
 
     const changeUsageSource = preferences.changeUnofficialSource;
     const unofficial = changeUsageSource ? createUnofficialSourceSwitch(
-        entry,
+        provider,
         providerSettings,
         (enable, parent) => changeUsageSource(enable, {
             settings: providerSettings,
@@ -308,7 +307,7 @@ function centerSwitch(sw: Gtk.Switch): Gtk.Widget {
 }
 
 function buildColumnHeader(
-    { entry, preferences }: Provider,
+    { id, displayName, preferences }: Provider,
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): Gtk.Widget {
@@ -322,9 +321,9 @@ function buildColumnHeader(
 
     const titleRow = new Gtk.Box({ spacing: 8, halign: Gtk.Align.CENTER });
     const iconBox = new Gtk.Box();
-    attachProviderGtkImage(iconBox, entry.id, settings, cancellable);
+    attachProviderGtkImage(iconBox, id, settings, cancellable);
     titleRow.append(iconBox);
-    const title = new Gtk.Label({ label: entry.displayName });
+    const title = new Gtk.Label({ label: displayName });
     title.add_css_class('heading');
     titleRow.append(title);
     box.append(titleRow);

@@ -3,7 +3,7 @@ import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-import { refreshProvider } from '../gjs/providers/registry.js';
+import { refreshProvider } from '../gjs/providers/refresh.js';
 import {
     requestShellRefresh,
     shellSnapshotsAvailable,
@@ -11,7 +11,7 @@ import {
     subscribeShellSnapshots,
 } from '../gjs/usageDBusClient.js';
 import { barEntries, barItemLabel } from '../lib/presentation.js';
-import { catalogEntry, KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
+import { providerById, KNOWN_PROVIDER_IDS } from '../lib/providers/registry.js';
 import type { UsageSnapshot } from '../lib/model.js';
 import { previewOrder, reorderTarget, type PillBound } from '../lib/barReorder.js';
 import { placeProvider, visibleIds, type LayoutState } from '../lib/layout.js';
@@ -165,7 +165,7 @@ export class TopBarEditor {
     }
 
     private pillLabel(id: string): string {
-        const name = catalogEntry(id)?.displayName ?? id;
+        const name = providerById(id)?.displayName ?? id;
         const [entry] = barEntries(
             [id],
             this.snapshots,

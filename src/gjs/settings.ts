@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import { normalizeLayout, type LayoutState } from '../lib/layout.js';
 import { type LogLevel, parseLogLevel } from '../lib/logLevel.js';
 import { publicError } from '../lib/model.js';
-import { KNOWN_PROVIDER_IDS } from '../lib/providers/catalog.js';
+import { KNOWN_PROVIDER_IDS } from '../lib/providers/registry.js';
 import type { CachedDataMode, QuotaPercentMode, UnavailableDisplay } from '../lib/presentation.js';
 import { appendLog, syncMinLogLevelFromSettings } from './log.js';
 

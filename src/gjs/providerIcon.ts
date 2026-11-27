@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 
-import { isLegacyColoredChatGptSvg } from '../lib/icons.js';
-import { catalogEntry, providerIconUrlCandidates } from '../lib/providers/catalog.js';
+import { isLegacyColoredChatGptSvg, providerIconUrlCandidates } from '../lib/icons.js';
+import { providerById } from '../lib/providers/registry.js';
 import { readFileBytes } from './files.js';
 import { appendLog } from './log.js';
 import {
@@ -96,15 +96,15 @@ function iconFileForCandidates(
 
 /** Cached web icon when downloads are enabled; otherwise nothing. */
 export function providerGicon(providerId: string, settings: ExtensionSettings): Gio.Icon | undefined {
-    const entry = catalogEntry(providerId);
-    if (!entry || !settings.useWebIcons)
+    const provider = providerById(providerId);
+    if (!provider || !settings.useWebIcons)
         return undefined;
 
-    const urls = providerIconUrlCandidates(entry, settings.iconUrl(providerId));
+    const urls = providerIconUrlCandidates(provider.defaultIconUrl, settings.iconUrl(providerId));
     if (urls.length === 0)
         return undefined;
 
-    const file = iconFileForCandidates(providerId, urls, entry.defaultIconUrl);
+    const file = iconFileForCandidates(providerId, urls, provider.defaultIconUrl);
     if (!file)
         return undefined;
     return giconFromFile(file);
@@ -115,14 +115,14 @@ export function refreshProviderGicon(
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): Promise<Gio.Icon | undefined> {
-    const entry = catalogEntry(providerId);
-    if (!entry)
+    const provider = providerById(providerId);
+    if (!provider)
         return Promise.resolve(undefined);
     if (!settings.useWebIcons) {
         appendLog('info', `Icon refresh skipped for ${providerId}: Download provider icons is off`);
         return Promise.resolve(undefined);
     }
-    const urls = providerIconUrlCandidates(entry, settings.iconUrl(providerId));
+    const urls = providerIconUrlCandidates(provider.defaultIconUrl, settings.iconUrl(providerId));
     if (urls.length === 0) {
         appendLog(
             'warn',
@@ -131,7 +131,7 @@ export function refreshProviderGicon(
         return Promise.resolve(undefined);
     }
     appendLog('info', `Icon refresh started for ${providerId}`);
-    return refreshProviderIconUrls(providerId, urls, entry.defaultIconUrl, cancellable);
+    return refreshProviderIconUrls(providerId, urls, provider.defaultIconUrl, cancellable);
 }
 
 async function refreshProviderIconUrls(

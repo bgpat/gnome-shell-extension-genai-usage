@@ -2,7 +2,7 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-import type { SecretPrompt } from '../gjs/providers/provider.js';
+import type { SecretPrompt } from '../lib/providers/provider.js';
 
 export function promptForValidatedSecret(
     parent: Gtk.Window,

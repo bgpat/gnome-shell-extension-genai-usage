@@ -25,6 +25,12 @@ export function effectiveIconUrl(defaultUrl: string, override: string): string |
     return undefined;
 }
 
+/** Built-in default URL; override replaces it. */
+export function providerIconUrlCandidates(defaultUrl: string, override: string): string[] {
+    const url = override.trim() || defaultUrl;
+    return isHttpsUrl(url) ? [url] : [];
+}
+
 export function iconUrlExtension(url: string): string {
     const match = url.trim().match(/\.(svg|png|jpe?g|gif|webp|ico)(?:[?#]|$)/i);
     if (match?.[1])

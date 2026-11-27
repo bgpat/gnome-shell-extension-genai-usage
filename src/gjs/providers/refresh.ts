@@ -1,18 +1,9 @@
 import type Gio from 'gi://Gio';
 
 import { publicError, unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
+import { providerById } from '../../lib/providers/registry.js';
 import { appendLog } from '../log.js';
 import type { ExtensionSettings } from '../settings.js';
-import { createChatGptProvider } from './chatgpt.js';
-import { createCursorProvider } from './cursor.js';
-import { createJevProvider } from './jev.js';
-import type { Provider } from './provider.js';
-
-export const PROVIDERS: readonly Provider[] = [createChatGptProvider(), createCursorProvider(), createJevProvider()];
-
-export function providerById(id: string): Provider | undefined {
-    return PROVIDERS.find(provider => provider.entry.id === id);
-}
 
 export async function refreshProvider(
     id: string,
@@ -30,7 +21,7 @@ export async function refreshProvider(
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         appendLog('error', `refreshProvider: ${id} threw ${publicError(message)}`, 'background');
-        return unavailableSnapshot(id, provider.entry.displayName, 'official', publicError(message));
+        return unavailableSnapshot(id, provider.displayName, 'official', publicError(message));
     } finally {
         appendLog('debug', `refreshProvider: ${id} end`, 'background');
     }

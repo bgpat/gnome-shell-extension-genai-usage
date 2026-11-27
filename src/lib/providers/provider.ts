@@ -1,8 +1,12 @@
 import type Gio from 'gi://Gio';
 
-import type { UsageSnapshot } from '../../lib/model.js';
-import type { ProviderCatalogEntry, QuotaMode } from '../../lib/providers/catalog.js';
-import type { ExtensionSettings } from '../settings.js';
+import type { UsageSnapshot } from '../model.js';
+import type { ExtensionSettings } from '../../gjs/settings.js';
+
+export interface QuotaMode {
+    id: string;
+    label: string;
+}
 
 export interface SecretPrompt {
     title: string;
@@ -13,7 +17,7 @@ export interface SecretPrompt {
     validate: (value: string, cancellable: Gio.Cancellable, setStatus: (message: string) => void) => Promise<string | undefined>;
 }
 
-interface UsageSourceContext {
+export interface UsageSourceContext {
     settings: Gio.Settings;
     cancellable: Gio.Cancellable;
     promptForSecret: (prompt: SecretPrompt) => Promise<boolean>;
@@ -33,7 +37,10 @@ interface ProviderPreferences {
 }
 
 export interface Provider {
-    entry: ProviderCatalogEntry;
+    id: string;
+    displayName: string;
+    defaultIconUrl: string;
+    showsCreditBalance?: boolean;
     refresh: (settings: ExtensionSettings, cancellable: Gio.Cancellable) => Promise<UsageSnapshot>;
     preferences: ProviderPreferences;
     requiresUnofficial?: boolean;
