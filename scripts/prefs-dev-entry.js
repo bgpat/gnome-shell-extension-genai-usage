@@ -48,7 +48,7 @@ function waitForPaint(window) {
     });
 }
 
-async function capturePages(window, directory) {
+async function capturePages(window, directory, suffix = '') {
     let clipped = false;
     // Register the X11 surface methods before looking up the window ID.
     await import('gi://GdkX11');
@@ -59,7 +59,7 @@ async function capturePages(window, directory) {
         // Width changes from the first allocation take effect on the following frame.
         await waitForPaint(window);
 
-        const output = GLib.build_filenamev([directory, name + '.png']);
+        const output = GLib.build_filenamev([directory, name + suffix + '.png']);
         const capture = Gio.Subprocess.new(
             ['import', '-window', windowId, output],
             Gio.SubprocessFlags.NONE,
@@ -68,8 +68,9 @@ async function capturePages(window, directory) {
 
         const page = window.get_visible_page();
         const scroller = page.get_first_child();
-        if (page.name !== name || scroller.get_height() < page.get_height() / 2) {
-            console.error('Preferences content is clipped on ' + name);
+        if (page.name !== name || scroller.get_height() < page.get_height() / 2 ||
+            page.get_width() > window.get_width()) {
+            console.error('Preferences content is clipped on ' + name + suffix);
             clipped = true;
         }
     }
@@ -105,6 +106,11 @@ app.connect('activate', () => {
         window.present();
         if (screenshotDir) {
             await capturePages(window, screenshotDir);
+            window.set_default_size(400, 540);
+            await waitForPaint(window);
+            if (window.get_width() !== 400)
+                throw new Error('Could not resize Preferences to 400 px');
+            await capturePages(window, screenshotDir, '-narrow');
             window.close();
         }
     })().catch(e => {
