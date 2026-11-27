@@ -9,6 +9,7 @@ export interface QuotaMode {
 export interface ProviderCatalogEntry {
     id: string;
     displayName: string;
+    columnHeaderNote?: string;
     defaultIconUrl: string;
     executableNames: string[];
     staticQuotaModes?: QuotaMode[];
@@ -21,6 +22,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'chatgpt',
         displayName: 'ChatGPT',
+        columnHeaderNote: 'Uses the official Codex app-server and the existing Codex login.',
         defaultIconUrl: googleFaviconUrl('https://chatgpt.com'),
         executableNames: ['codex'],
         staticQuotaModes: [
@@ -34,6 +36,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'cursor',
         displayName: 'Cursor',
+        columnHeaderNote: 'Quota details from cursor.com are off until you allow the unofficial source.',
         defaultIconUrl: googleFaviconUrl('https://cursor.com'),
         executableNames: ['cursor-agent'],
         dynamicQuotas: true,
@@ -42,6 +45,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     {
         id: 'jev',
         displayName: 'Jev',
+        columnHeaderNote: 'Uses a TypeSafe console session to read available credits.',
         defaultIconUrl: googleFaviconUrl('https://console.typesafe.ai'),
         executableNames: [],
         dynamicQuotas: false,

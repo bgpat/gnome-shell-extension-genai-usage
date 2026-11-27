@@ -341,7 +341,7 @@ function buildColumnHeader(
     titleRow.append(title);
     box.append(titleRow);
 
-    const note = columnHeaderNote(entry);
+    const note = entry.columnHeaderNote;
     if (note) {
         const subtitle = new Gtk.Label({
             label: note,
@@ -355,14 +355,4 @@ function buildColumnHeader(
         box.append(subtitle);
     }
     return box;
-}
-
-function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
-    if (entry.id === 'jev')
-        return 'Uses a TypeSafe console session to read available credits.';
-    if (entry.supportsUnofficial)
-        return 'Quota details from cursor.com are off until you allow the unofficial source.';
-    if (entry.id === 'chatgpt')
-        return 'Uses the official Codex app-server and the existing Codex login.';
-    return undefined;
 }
