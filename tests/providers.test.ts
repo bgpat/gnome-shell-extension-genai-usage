@@ -97,7 +97,7 @@ describe('Jev billing normalization', () => {
                 ],
             },
         }, Date.parse('2026-11-27T00:00:00Z'));
-        expect(snapshot?.credits?.balance).toBe('USD 3.00');
+        expect(snapshot?.credits?.balance).toBe('$3.00');
         const snapshots = new Map([['jev', snapshot!]]);
         expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide')[0]?.text).toBe('30%');
         expect(barEntries(['jev'], snapshots, () => 'lowest', 'hide', 'used')[0]?.text).toBe('70%');
@@ -108,7 +108,7 @@ describe('Jev billing normalization', () => {
             balance: 5,
             credits: [{ amount: 2, remaining: 1 }],
         } }, 1_000);
-        expect(snapshot?.credits?.balance).toBe('USD 5.00');
+        expect(snapshot?.credits?.balance).toBe('$5.00');
         expect(snapshot?.quotas).toEqual([]);
     });
 
@@ -148,8 +148,8 @@ describe('Jev billing normalization', () => {
         expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing email', value: 'billing@example.test' });
         expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing address', value: 'Not set' });
         expect(snapshot?.billingOverview?.history).toEqual([
-            { label: 'Payment', value: 'USD 10.00 · 2026-11-22 00:00 UTC · Paid' },
-            { label: 'Monthly credit', value: 'USD 5.00 · USD 5.00 remaining · Expires 2026-12-21 00:00 UTC · 2026-11-21 00:00 UTC' },
+            { label: 'Payment', value: '$10.00 · 2026-11-22 00:00 UTC · Paid' },
+            { label: 'Monthly credit', value: '$5.00 · $5.00 remaining · Expires 2026-12-21 00:00 UTC · 2026-11-21 00:00 UTC' },
         ]);
         expect(snapshot?.billingOverview?.hasMore).toBe(true);
     });

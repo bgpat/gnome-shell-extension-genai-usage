@@ -47,6 +47,8 @@ export function formatMoney(amount: number | undefined, currency = 'USD'): strin
     if (amount === undefined || !Number.isFinite(amount))
         return undefined;
     const rounded = Math.round(amount * 100) / 100;
+    if (currency === 'USD')
+        return `${rounded < 0 ? '-' : ''}$${Math.abs(rounded).toFixed(2)}`;
     return `${currency} ${rounded.toFixed(2)}`;
 }
 
