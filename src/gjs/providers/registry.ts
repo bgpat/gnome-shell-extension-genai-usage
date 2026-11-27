@@ -22,25 +22,26 @@ export async function refreshProvider(
     }
     appendLog('debug', `refreshProvider: ${id} begin`, 'background');
     try {
-        if (id === 'chatgpt') {
-            return await refreshChatGpt({
-                executablePath: settings.executablePath(id),
-                cancellable,
-                timeoutSec: 25,
-            });
+        switch (id) {
+            case 'chatgpt':
+                return await refreshChatGpt({
+                    executablePath: settings.executablePath(id),
+                    cancellable,
+                    timeoutSec: 25,
+                });
+            case 'cursor':
+                return await refreshCursor({
+                    executablePath: settings.executablePath(id),
+                    allowUnofficial: settings.allowUnofficial(id),
+                    cancellable,
+                    timeoutSec: 25,
+                });
+            case 'jev':
+                return await refreshJev(settings.allowUnofficial(id), cancellable);
+            default:
+                appendLog('warn', `refreshProvider: ${id} not implemented`, 'background');
+                return unavailableSnapshot(id, entry.displayName, 'official', 'Provider is not implemented');
         }
-        if (id === 'cursor') {
-            return await refreshCursor({
-                executablePath: settings.executablePath(id),
-                allowUnofficial: settings.allowUnofficial(id),
-                cancellable,
-                timeoutSec: 25,
-            });
-        }
-        if (id === 'jev')
-            return await refreshJev(settings.allowUnofficial(id), cancellable);
-        appendLog('warn', `refreshProvider: ${id} not implemented`, 'background');
-        return unavailableSnapshot(id, entry.displayName, 'official', 'Provider is not implemented');
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         appendLog('error', `refreshProvider: ${id} threw ${publicError(message)}`, 'background');
