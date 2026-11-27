@@ -1,4 +1,5 @@
 import Adw from 'gi://Adw';
+import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
 /**
@@ -11,14 +12,16 @@ export function prepareComboRow(row: Adw.ComboRow): void {
     row.connect('notify::selected', () => refreshComboRowSubtitle(row));
 
     const factory = Gtk.SignalListItemFactory.new();
-    factory.connect('setup', (_factory, listItem: Gtk.ListItem) => {
+    factory.connect('setup', (_factory, object: GObject.Object) => {
+        const listItem = object as Gtk.ListItem;
         const label = Gtk.Label.new(null);
         label.xalign = 0;
         label.valign = Gtk.Align.CENTER;
         label.max_width_chars = -1;
         listItem.set_child(label);
     });
-    factory.connect('bind', (_factory, listItem: Gtk.ListItem) => {
+    factory.connect('bind', (_factory, object: GObject.Object) => {
+        const listItem = object as Gtk.ListItem;
         const item = listItem.get_item();
         const label = listItem.get_child() as Gtk.Label;
         if (item instanceof Gtk.StringObject)
