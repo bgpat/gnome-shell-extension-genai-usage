@@ -33,7 +33,13 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
         description:
             'Rows are settings; columns are providers. Cursor quota details from cursor.com need the unofficial source.',
     });
-    group.add(buildServicesMatrix(columns, settings, cancellable));
+    // Keep the matrix reachable without imposing its minimum width on every tab.
+    group.add(new Gtk.ScrolledWindow({
+        child: buildServicesMatrix(columns, settings, cancellable),
+        hscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+        vscrollbar_policy: Gtk.PolicyType.NEVER,
+        overlay_scrolling: false,
+    }));
     group.margin_bottom = 24;
     page.add(group);
     const unsubscribe = subscribeShellSnapshots(() => {
