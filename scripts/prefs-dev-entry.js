@@ -19,11 +19,12 @@ if (!gresourceFile.query_exists(null)) {
 }
 Gio.resources_register(Gio.Resource.load(GRESOURCE_PATH));
 
-const [extensionPath, screenshotDir] = ARGV;
+const [extensionPath, screenshotDir, screenshotMode] = ARGV;
 if (!extensionPath) {
-    console.error('Usage: gjs -m prefs-dev-entry.js /path/to/extension-dir [screenshot-dir]');
+    console.error('Usage: gjs -m prefs-dev-entry.js /path/to/extension-dir [screenshot-dir [narrow]]');
     System.exit(1);
 }
+const narrow = screenshotMode === 'narrow';
 
 const dir = Gio.File.new_for_path(extensionPath);
 const [ok, bytes] = dir.get_child('metadata.json').load_contents(null);
@@ -48,8 +49,9 @@ function waitForPaint(window) {
     });
 }
 
-async function capturePages(window, directory, suffix = '') {
+async function capturePages(window, directory) {
     let clipped = false;
+    const suffix = narrow ? '-narrow' : '';
     // Register the X11 surface methods before looking up the window ID.
     await import('gi://GdkX11');
     const windowId = String(window.get_surface().get_xid());
@@ -69,7 +71,7 @@ async function capturePages(window, directory, suffix = '') {
         const page = window.get_visible_page();
         const scroller = page.get_first_child();
         if (page.name !== name || scroller.get_height() < page.get_height() / 2 ||
-            page.get_width() > window.get_width()) {
+            page.get_width() > window.get_width() || (narrow && window.get_width() !== 400)) {
             console.error('Preferences content is clipped on ' + name + suffix);
             clipped = true;
         }
@@ -103,14 +105,11 @@ app.connect('activate', () => {
         });
         const prefsObj = new prefsModule.default({ ...metadata, dir, path });
         await prefsObj.fillPreferencesWindow(window);
+        if (narrow)
+            window.set_default_size(400, 540);
         window.present();
         if (screenshotDir) {
             await capturePages(window, screenshotDir);
-            window.set_default_size(400, 540);
-            await waitForPaint(window);
-            if (window.get_width() !== 400)
-                throw new Error('Could not resize Preferences to 400 px');
-            await capturePages(window, screenshotDir, '-narrow');
             window.close();
         }
     })().catch(e => {
