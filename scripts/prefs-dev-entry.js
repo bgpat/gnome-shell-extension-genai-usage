@@ -19,11 +19,12 @@ if (!gresourceFile.query_exists(null)) {
 }
 Gio.resources_register(Gio.Resource.load(GRESOURCE_PATH));
 
-const [extensionPath, screenshotDir] = ARGV;
+const [extensionPath, screenshotDir, screenshotMode] = ARGV;
 if (!extensionPath) {
-    console.error('Usage: gjs -m prefs-dev-entry.js /path/to/extension-dir [screenshot-dir]');
+    console.error('Usage: gjs -m prefs-dev-entry.js /path/to/extension-dir [screenshot-dir [narrow]]');
     System.exit(1);
 }
+const narrow = screenshotMode === 'narrow';
 
 const dir = Gio.File.new_for_path(extensionPath);
 const [ok, bytes] = dir.get_child('metadata.json').load_contents(null);
@@ -50,6 +51,7 @@ function waitForPaint(window) {
 
 async function capturePages(window, directory) {
     let clipped = false;
+    const suffix = narrow ? '-narrow' : '';
     // Register the X11 surface methods before looking up the window ID.
     await import('gi://GdkX11');
     const windowId = String(window.get_surface().get_xid());
@@ -59,7 +61,7 @@ async function capturePages(window, directory) {
         // Width changes from the first allocation take effect on the following frame.
         await waitForPaint(window);
 
-        const output = GLib.build_filenamev([directory, name + '.png']);
+        const output = GLib.build_filenamev([directory, name + suffix + '.png']);
         const capture = Gio.Subprocess.new(
             ['import', '-window', windowId, output],
             Gio.SubprocessFlags.NONE,
@@ -68,8 +70,12 @@ async function capturePages(window, directory) {
 
         const page = window.get_visible_page();
         const scroller = page.get_first_child();
-        if (page.name !== name || scroller.get_height() < page.get_height() / 2) {
-            console.error('Preferences content is clipped on ' + name);
+        const width = window.get_width();
+        // Older GTK versions count the window frame against the requested width.
+        const narrowWidthMismatch = narrow && (width > 400 || window.get_surface().get_width() < 400);
+        if (page.name !== name || scroller.get_height() < page.get_height() / 2 ||
+            page.get_width() > width || narrowWidthMismatch) {
+            console.error(`Unexpected Preferences layout on ${name}${suffix} (page ${page.get_width()} px, window ${width} px)`);
             clipped = true;
         }
     }
@@ -102,6 +108,8 @@ app.connect('activate', () => {
         });
         const prefsObj = new prefsModule.default({ ...metadata, dir, path });
         await prefsObj.fillPreferencesWindow(window);
+        if (narrow)
+            window.set_default_size(400, 540);
         window.present();
         if (screenshotDir) {
             await capturePages(window, screenshotDir);

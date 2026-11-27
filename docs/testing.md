@@ -50,7 +50,8 @@ Pull requests capture General, Services, and Log on Ubuntu 24.04 (GNOME 46)
 and Ubuntu 26.04 (GNOME 50). Download the PNGs from the workflow run's
 **Artifacts** section under `preferences-gnome-46` and `preferences-gnome-50`.
 The test opens the packed Preferences app with isolated settings on Xvfb and
-checks that each tab gets a usable viewport.
+checks that each tab gets a usable viewport at both the default width and
+400 px. The narrow screenshots have a `-narrow` suffix.
 
 To capture the same screenshots locally, install `gnome-shell`, `gjs`, `xvfb`,
 `xauth`, and `imagemagick`, then run from the worktree:

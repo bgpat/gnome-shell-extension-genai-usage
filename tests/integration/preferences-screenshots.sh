@@ -23,5 +23,10 @@ export GI_TYPELIB_PATH=/usr/lib/gnome-shell/girepository-1.0
 export GDK_BACKEND=x11
 export GSK_RENDERER=cairo
 
-timeout 45s xvfb-run -a -s '-screen 0 1280x800x24' dbus-run-session -- \
-    gjs -m scripts/prefs-dev-entry.js "$work/extension" "$output"
+capture() {
+    timeout 45s xvfb-run -a -s '-screen 0 1280x800x24' dbus-run-session -- \
+        gjs -m scripts/prefs-dev-entry.js "$work/extension" "$output" "$@"
+}
+
+capture
+capture narrow

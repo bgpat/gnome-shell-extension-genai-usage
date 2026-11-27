@@ -71,7 +71,11 @@ export class TopBarEditor {
             css_classes: ['genai-topbar-editor'],
             hexpand: true,
         });
-        this.widget.append(previewBar);
+        this.widget.append(new Gtk.ScrolledWindow({
+            child: previewBar,
+            hscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+            vscrollbar_policy: Gtk.PolicyType.NEVER,
+        }));
 
         subscribeShellSnapshots(() => {
             this.applyShellSnapshots(snapshotsFromShell());
