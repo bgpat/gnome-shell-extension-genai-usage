@@ -143,7 +143,7 @@ function buildProviderColumn(
         placeholder_text: 'HTTPS icon URL (optional)',
     });
     iconUrl.set_tooltip_text(
-        'HTTPS image URL. When empty, ChatGPT uses https://chatgpt.com/favicon.svg and Cursor uses https://cursor.com/favicon.svg .',
+        'HTTPS image URL. Leave empty to use the default provider icon.',
     );
     provider.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
 
@@ -328,11 +328,18 @@ function buildColumnHeader(
     if (note) {
         const subtitle = new Gtk.Label({
             label: note,
+            use_markup: entry.id === 'jev',
             wrap: true,
             xalign: 0.5,
             justify: Gtk.Justification.CENTER,
             max_width_chars: 28,
         });
+        if (entry.id === 'jev') {
+            subtitle.connect('activate-link', () => {
+                appendLog('info', 'Services: opened the Jev setup README.', 'user');
+                return false;
+            });
+        }
         subtitle.add_css_class('dim-label');
         subtitle.add_css_class('genai-services-matrix-header-note');
         box.append(subtitle);
@@ -341,8 +348,10 @@ function buildColumnHeader(
 }
 
 function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
-    if (entry.showsCreditBalance)
-        return 'Uses a TypeSafe console session to read available credits. See the README for setup.';
+    if (entry.id === 'jev') {
+        return 'Uses a TypeSafe console session to read available credits. '
+            + '<a href="https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/main/README.md#set-up-jev">README</a>';
+    }
     if (entry.supportsUnofficial)
         return 'Quota details from cursor.com are off until you allow the unofficial source.';
     if (entry.id === 'chatgpt')
