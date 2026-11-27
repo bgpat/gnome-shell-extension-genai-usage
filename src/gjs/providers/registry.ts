@@ -22,22 +22,21 @@ export async function refreshProvider(
     }
     appendLog('debug', `refreshProvider: ${id} begin`, 'background');
     try {
+        const cliOptions = {
+            executablePath: entry.executableNames.length ? settings.executablePath(id) : '',
+            cancellable,
+            timeoutSec: 25,
+        };
+        const allowUnofficial = entry.supportsUnofficial && settings.allowUnofficial(id);
+        const cursorOptions = { ...cliOptions, allowUnofficial };
+
         switch (id) {
             case 'chatgpt':
-                return await refreshChatGpt({
-                    executablePath: settings.executablePath(id),
-                    cancellable,
-                    timeoutSec: 25,
-                });
+                return await refreshChatGpt(cliOptions);
             case 'cursor':
-                return await refreshCursor({
-                    executablePath: settings.executablePath(id),
-                    allowUnofficial: settings.allowUnofficial(id),
-                    cancellable,
-                    timeoutSec: 25,
-                });
+                return await refreshCursor(cursorOptions);
             case 'jev':
-                return await refreshJev(settings.allowUnofficial(id), cancellable);
+                return await refreshJev(allowUnofficial, cancellable);
             default:
                 appendLog('warn', `refreshProvider: ${id} not implemented`, 'background');
                 return unavailableSnapshot(id, entry.displayName, 'official', 'Provider is not implemented');
