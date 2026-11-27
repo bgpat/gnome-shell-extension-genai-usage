@@ -15,7 +15,7 @@ import {
 } from '../lib/menuPresentation.js';
 import type { BillingDetail, UsageSnapshot } from '../lib/model.js';
 import { catalogEntry } from '../lib/providers/catalog.js';
-import { quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
+import { quotaBarText, quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderStIcon } from './providerIconView.js';
 
@@ -56,7 +56,8 @@ export function fillProviderSection(
         return resets;
     }
 
-    if (catalogEntry(providerId)?.showsCreditBalance && snapshot.availability.state === 'unavailable') {
+    const showsCreditBalance = catalogEntry(providerId)?.showsCreditBalance;
+    if (showsCreditBalance && snapshot.availability.state === 'unavailable') {
         box.add_child(new St.Label({ text: snapshot.availability.reason, style_class: 'genai-usage-muted' }));
         return resets;
     }
@@ -65,7 +66,7 @@ export function fillProviderSection(
         box.add_child(new St.Label({ text: `Plan: ${snapshot.plan}`, style_class: 'genai-usage-muted' }));
     }
 
-    if (snapshot.quotas.length === 0 && !catalogEntry(providerId)?.showsCreditBalance
+    if (snapshot.quotas.length === 0 && !showsCreditBalance
         && snapshot.availability.state === 'available') {
         box.add_child(new St.Label({
             text: 'Quota data is unavailable',
@@ -75,12 +76,17 @@ export function fillProviderSection(
 
     const percentMode = settings.quotaPercentMode;
     const quotaBars: QuotaBarWidgets[] = [];
+    const balance = showsCreditBalance ? snapshot.credits?.balance : undefined;
+    let balanceDisplayed = false;
     for (const quota of snapshot.quotas) {
-        box.add_child(new St.Label({ text: quotaMenuLineText(quota, percentMode) }));
+        const creditPercent = balance && quota.id === 'credits' ? quotaBarText(quota, percentMode) : undefined;
+        const text = creditPercent ? `${balance} (${creditPercent})` : quotaMenuLineText(quota, percentMode);
+        balanceDisplayed ||= creditPercent !== undefined;
+        box.add_child(new St.Label({ text }));
         const displayPercent = quotaPercentForDisplay(quota, percentMode);
         if (displayPercent !== undefined)
             quotaBars.push(appendQuotaBar(box, displayPercent));
-        if (catalogEntry(providerId)?.showsCreditBalance && quota.resetsAt === undefined)
+        if (showsCreditBalance && quota.resetsAt === undefined)
             continue;
         const reset = new St.Label({ style_class: 'genai-usage-muted' });
         reset.text = menuResetLabelText(quota.resetsAt, nowMs);
@@ -89,7 +95,10 @@ export function fillProviderSection(
     }
     layoutSectionQuotaBars(box, quotaBars);
 
-    if (snapshot.credits) {
+    if (balance) {
+        if (!balanceDisplayed)
+            box.add_child(new St.Label({ text: balance, style_class: 'genai-usage-muted' }));
+    } else if (snapshot.credits) {
         const parts: string[] = [];
         if (snapshot.credits.unlimited)
             parts.push('unlimited');
