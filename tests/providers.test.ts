@@ -120,6 +120,40 @@ describe('Jev billing normalization', () => {
         expect(snapshot?.quotas[0]?.remainingPercent).toBe(0);
     });
 
+    test('preserves available billing information and the reported history', () => {
+        const grant = {
+            amount: 5, remaining: 5, reason: 'free_tier_credit',
+            createdAt: '2026-11-21T00:00:00Z', expiresAt: '2026-12-21T00:00:00Z',
+        };
+        const snapshot = normalizeJevBilling({
+            billing: {
+                plan: 'free_plan', balance: 5, spent: 0, purchased: 0, freeCreditsRemaining: 5,
+                cycleLabel: 'November', resetsInDays: 2, autoPay: null, paymentMethod: null,
+                invoiceEmail: 'billing@example.test', billingAddressValid: false, taxId: null,
+                credits: [grant],
+            },
+            credits: [grant],
+            payments: [{ amount: 10, status: 'Paid', createdAt: '2026-11-22T00:00:00Z' }],
+            budgetAlerts: { ok: true, data: null },
+            spendLimit: { ok: true, data: null },
+            hasMore: true,
+        }, Date.parse('2026-11-28T00:00:00Z'));
+        expect(snapshot?.plan).toBe('Free');
+        expect(snapshot?.billing).toEqual([
+            { label: 'Spent (November)', amount: 0 },
+            { label: 'Purchased credits', amount: 0 },
+            { label: 'Free credits remaining', amount: 5 },
+        ]);
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Auto-recharge', value: 'Off' });
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing email', value: 'billing@example.test' });
+        expect(snapshot?.billingOverview?.details).toContainEqual({ label: 'Billing address', value: 'Not set' });
+        expect(snapshot?.billingOverview?.history).toEqual([
+            { label: 'Payment', value: 'USD 10.00 · 2026-11-22 00:00 UTC · Paid' },
+            { label: 'Monthly credit', value: 'USD 5.00 · USD 5.00 remaining · Expires 2026-12-21 00:00 UTC · 2026-11-21 00:00 UTC' },
+        ]);
+        expect(snapshot?.billingOverview?.hasMore).toBe(true);
+    });
+
     test('keeps a missing or invalid balance unavailable', () => {
         for (const billing of [{}, { balance: null }, { balance: Number.NaN }])
             expect(normalizeJevBilling({ billing }, 1_000)).toBeUndefined();

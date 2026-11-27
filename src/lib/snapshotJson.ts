@@ -7,6 +7,14 @@ export function snapshotsToJson(snapshots: ReadonlyMap<string, UsageSnapshot>): 
     return JSON.stringify(record);
 }
 
+/** Billing contacts and history are used by the Shell menu only. */
+export function previewSnapshotsToJson(snapshots: ReadonlyMap<string, UsageSnapshot>): string {
+    const preview = new Map<string, UsageSnapshot>();
+    for (const [id, snapshot] of snapshots)
+        preview.set(id, { ...snapshot, billingOverview: undefined });
+    return snapshotsToJson(preview);
+}
+
 export function snapshotsFromJson(text: string): Map<string, UsageSnapshot> {
     const map = new Map<string, UsageSnapshot>();
     if (text.trim() === '')

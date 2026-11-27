@@ -236,11 +236,11 @@ function buildServicesMatrix(
         },
         {
             label: 'Show subscription plan',
-            cell: column => column.entry.showsCreditBalance ? matrixNaCell() : centerSwitch(column.cell.showPlan),
+            cell: column => centerSwitch(column.cell.showPlan),
         },
         {
             label: 'Show billing',
-            cell: column => column.entry.showsCreditBalance ? matrixNaCell() : centerSwitch(column.cell.showBilling),
+            cell: column => centerSwitch(column.cell.showBilling),
         },
         {
             label: 'Icon URL',

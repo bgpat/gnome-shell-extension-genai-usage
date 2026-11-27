@@ -1,4 +1,5 @@
-import { formatMoney } from '../../format.js';
+import { displayPlan, formatMoney } from '../../format.js';
+import { billingOverview, billingText } from './billingOverview.js';
 import { finiteNumber, isRecord, type UsageSnapshot } from '../../model.js';
 
 export function normalizeJevBilling(response: unknown, refreshedAt: number): UsageSnapshot | undefined {
@@ -7,7 +8,15 @@ export function normalizeJevBilling(response: unknown, refreshedAt: number): Usa
     const balance = finiteNumber(response.billing.balance);
     if (balance === undefined || balance < 0)
         return undefined;
-    const remainingPercent = creditRemainingPercent(response.billing.credits, balance, refreshedAt);
+    const billing = response.billing;
+    const remainingPercent = creditRemainingPercent(billing.credits, balance, refreshedAt);
+    const plan = billingText(billing.plan);
+    const cycle = billingText(billing.cycleLabel);
+    const amounts = [
+        { label: cycle ? `Spent (${cycle})` : 'Spent', amount: finiteNumber(billing.spent) },
+        { label: 'Purchased credits', amount: finiteNumber(billing.purchased) },
+        { label: 'Free credits remaining', amount: finiteNumber(billing.freeCreditsRemaining) },
+    ].filter(row => row.amount !== undefined);
     return {
         providerId: 'jev',
         displayName: 'Jev',
@@ -16,7 +25,10 @@ export function normalizeJevBilling(response: unknown, refreshedAt: number): Usa
         quotas: remainingPercent === undefined
             ? []
             : [{ id: 'credits', label: 'Credits', remainingPercent }],
+        plan: displayPlan(plan === 'free_plan' ? 'free' : plan),
         credits: { balance: formatMoney(balance) },
+        billing: amounts,
+        billingOverview: billingOverview(response, billing),
         refreshedAt,
     };
 }

@@ -13,7 +13,7 @@ import {
     tickMenuResetLabels,
     type MenuResetLabelRow,
 } from '../lib/menuPresentation.js';
-import type { UsageSnapshot } from '../lib/model.js';
+import type { BillingDetail, UsageSnapshot } from '../lib/model.js';
 import { catalogEntry } from '../lib/providers/catalog.js';
 import { quotaMenuLineText, quotaPercentForDisplay } from '../lib/presentation.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
@@ -120,7 +120,37 @@ export function fillProviderSection(
     refreshed.text = menuRefreshLabelText(snapshot.refreshedAt, nowMs);
     box.add_child(refreshed);
     resets.push({ label: refreshed, refreshedAt: snapshot.refreshedAt, kind: 'refresh' });
+    if (showBilling && snapshot.billingOverview) {
+        const { details, history, hasMore } = snapshot.billingOverview;
+        appendBillingSubmenu(section, 'Billing details', details);
+        appendBillingSubmenu(section, 'Billing history', history, hasMore);
+    }
     return resets;
+}
+
+function appendBillingSubmenu(
+    section: PopupMenu.PopupMenuSection,
+    title: string,
+    details: BillingDetail[],
+    hasMore = false,
+): void {
+    if (details.length === 0 && !hasMore)
+        return;
+    const submenu = new PopupMenu.PopupSubMenuMenuItem(title);
+    for (const { label, value } of details) {
+        const row = new PopupMenu.PopupMenuItem(`${label}: ${value}`, { reactive: false, can_focus: false });
+        row.label.style = 'max-width: 360px;';
+        row.label.clutter_text.line_wrap = true;
+        submenu.menu.addMenuItem(row);
+    }
+    if (hasMore) {
+        const row = new PopupMenu.PopupMenuItem('More entries are available in TypeSafe Billing', {
+            reactive: false,
+            can_focus: false,
+        });
+        submenu.menu.addMenuItem(row);
+    }
+    section.addMenuItem(submenu);
 }
 
 interface QuotaBarWidgets {

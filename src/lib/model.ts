@@ -26,6 +26,17 @@ export interface BillingAmount {
     currency?: string;
 }
 
+export interface BillingDetail {
+    label: string;
+    value: string;
+}
+
+export interface BillingOverview {
+    details: BillingDetail[];
+    history: BillingDetail[];
+    hasMore: boolean;
+}
+
 export interface UsageSnapshot {
     providerId: string;
     displayName: string;
@@ -35,6 +46,7 @@ export interface UsageSnapshot {
     quotas: QuotaWindow[];
     credits?: CreditBalance;
     billing?: BillingAmount[];
+    billingOverview?: BillingOverview;
     refreshedAt?: number;
     notices?: string[];
     error?: string;
