@@ -112,16 +112,21 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
         warning.visible = true;
     };
 
+    const cancelButton = new Gtk.Button({ label: 'Cancel' });
+    const validateButton = new Gtk.Button({ label: 'Validate' });
+    validateButton.add_css_class('suggested-action');
+    // MessageDialog response buttons close the window automatically.
+    const actions = new Gtk.Box({ spacing: 12, homogeneous: true, margin_top: 8 });
+    actions.append(cancelButton);
+    actions.append(validateButton);
+
     const fields = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
     fields.append(cookie);
     fields.append(warning);
     fields.append(setupGuide);
+    fields.append(actions);
     dialog.extra_child = fields;
-    dialog.add_response('cancel', 'Cancel');
-    dialog.add_response('validate', 'Validate');
-    dialog.set_response_appearance('validate', Adw.ResponseAppearance.SUGGESTED);
-    dialog.default_response = 'validate';
-    dialog.close_response = 'cancel';
+    dialog.set_default_widget(validateButton);
 
     return new Promise(resolve => {
         let request: Gio.Cancellable | undefined;
@@ -187,17 +192,14 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
                     resolve(true);
                 } else {
                     cookie.sensitive = true;
-                    dialog.set_response_enabled('validate', true);
+                    validateButton.sensitive = true;
                 }
             }
         };
 
-        dialog.connect('response', (_dialog, response: string) => {
-            if (response === 'cancel') {
-                cancel();
-                return;
-            }
-            if (response !== 'validate' || request || closed)
+        cancelButton.connect('clicked', cancel);
+        validateButton.connect('clicked', () => {
+            if (request || closed)
                 return;
             const value = parseJevCookie(cookie.text);
             if (!value) {
@@ -208,13 +210,13 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
 
             request = new Gio.Cancellable();
             cookie.sensitive = false;
-            dialog.set_response_enabled('validate', false);
+            validateButton.sensitive = false;
             warning.visible = false;
             dialog.body = 'Checking the TypeSafe session…';
             appendLog('info', 'Services: validating the Jev unofficial usage source.', 'user');
             void validate(value, request);
         });
-        cookie.connect('activate', () => dialog.response('validate'));
+        cookie.connect('activate', () => validateButton.activate());
         dialog.present();
         cookie.grab_focus();
     });
