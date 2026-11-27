@@ -2,15 +2,47 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
+import { jevEntry } from '../../lib/providers/catalog.js';
 import { normalizeJevBilling } from '../../lib/providers/jev/normalize.js';
-import { appendLog } from '../log.js';
 import { httpGet } from '../http.js';
+import { appendLog } from '../log.js';
+import { UNOFFICIAL_SOURCE_SETTING } from '../settings.js';
+import type { Provider } from './provider.js';
 
-const SETTING = 'allow-unofficial-sources';
 const CONSOLE = 'https://console.typesafe.ai';
 const unavailable = (reason: string) => unavailableSnapshot('jev', 'Jev', 'unofficial', reason);
 
-export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Cancellable): Promise<UsageSnapshot> {
+export function createJevProvider(): Provider {
+    return {
+        entry: jevEntry,
+        refresh: (settings, cancellable) => refreshJev(settings.allowUnofficial(jevEntry.id), cancellable),
+        requiresUnofficial: true,
+        preferences: {
+            columnHeaderNote: 'Uses a TypeSafe console session to read available credits.',
+            emptyQuotaLabel: 'Available credits',
+            changeUnofficialSource: async (enable, { settings, cancellable, promptForSecret }) => {
+                if (!enable) {
+                    await deactivateJev(settings, cancellable);
+                    return !cancellable.is_cancelled();
+                }
+
+                return promptForSecret({
+                    title: 'Enable Jev usage source',
+                    instructions: 'Paste the full Cookie request header from the TypeSafe console Billing page.',
+                    placeholder: 'Cookie: session_id=****',
+                    help: {
+                        uri: 'https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/main/docs/jev.md',
+                        label: 'Setup guide',
+                        onOpen: () => appendLog('info', 'Services: opened the Jev setup guide.', 'user'),
+                    },
+                    validate: (value, attempt, setStatus) => activateJev(value, settings, attempt, setStatus),
+                });
+            },
+        },
+    };
+}
+
+async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Cancellable): Promise<UsageSnapshot> {
     if (!allowUnofficial)
         return unavailable('Enable the unofficial usage source for Jev in Services');
 
@@ -61,7 +93,7 @@ async function fetchJevBilling(cookie: string, cancellable: Gio.Cancellable): Pr
     }
 }
 
-export async function activateJev(
+async function activateJev(
     value: string,
     settings: Gio.Settings,
     cancellable: Gio.Cancellable,
@@ -87,13 +119,13 @@ export async function activateJev(
     return saveJevActivation(cookie, settings, cancellable);
 }
 
-export async function deactivateJev(settings: Gio.Settings, cancellable: Gio.Cancellable): Promise<void> {
+async function deactivateJev(settings: Gio.Settings, cancellable: Gio.Cancellable): Promise<void> {
     try {
         await clearJevCookie(cancellable);
     } catch {
         throw new Error('Could not remove the Jev cookie. Check that the GNOME keyring is installed and unlocked.');
     }
-    if (!settings.set_boolean(SETTING, false))
+    if (!settings.set_boolean(UNOFFICIAL_SOURCE_SETTING, false))
         throw new Error('The setting could not be saved.');
 }
 
@@ -109,7 +141,7 @@ async function saveJevActivation(cookie: string, settings: Gio.Settings, cancell
     }
 
     try {
-        if (!cancellable.is_cancelled() && settings.set_boolean(SETTING, true))
+        if (!cancellable.is_cancelled() && settings.set_boolean(UNOFFICIAL_SOURCE_SETTING, true))
             return undefined;
     } catch {
         appendLog('warn', 'Services: could not write the Jev unofficial usage setting.', 'user');

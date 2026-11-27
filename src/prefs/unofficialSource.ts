@@ -3,17 +3,14 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { appendLog } from '../gjs/log.js';
+import { UNOFFICIAL_SOURCE_SETTING } from '../gjs/settings.js';
 import { publicError } from '../lib/model.js';
 import type { ProviderCatalogEntry } from '../lib/providers/catalog.js';
-
-export const UNOFFICIAL_SOURCE_SETTING = 'allow-unofficial-sources';
-
-export type ChangeUsageSource = (enable: boolean, parent: Gtk.Window) => Promise<boolean>;
 
 export function createUnofficialSourceSwitch(
     entry: ProviderCatalogEntry,
     settings: Gio.Settings,
-    changeUsageSource: ChangeUsageSource,
+    changeUsageSource: (enable: boolean, parent: Gtk.Window) => Promise<boolean>,
     cancellable: Gio.Cancellable,
 ): { widget: Gtk.Switch; reload: () => void } {
     const widget = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });

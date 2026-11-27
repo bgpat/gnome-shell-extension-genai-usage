@@ -2,9 +2,10 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { isRecord, publicError, unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
-import type { QuotaMode } from '../../lib/providers/catalog.js';
+import { cursorEntry, type QuotaMode } from '../../lib/providers/catalog.js';
 import {
     mergeCursorFailure,
+    quotaModesFromQuotas,
     quotaOptionsFromSummary,
     snapshotFromOfficial,
     snapshotFromUsageSummary,
@@ -18,7 +19,43 @@ import {
 import { resolveExecutable } from '../executable.js';
 import { configHome, fileExists, readFileText } from '../files.js';
 import { httpGet } from '../http.js';
+import { appendLog } from '../log.js';
+import { UNOFFICIAL_SOURCE_SETTING } from '../settings.js';
 import { runProcess } from '../subprocess.js';
+import type { Provider } from './provider.js';
+
+const executableName = 'cursor-agent';
+
+export function createCursorProvider(): Provider {
+    return {
+        entry: cursorEntry,
+        refresh: (settings, cancellable) => refreshCursor({
+            executablePath: settings.executablePath(cursorEntry.id),
+            allowUnofficial: settings.allowUnofficial(cursorEntry.id),
+            cancellable,
+            timeoutSec: 25,
+        }),
+        preferences: {
+            columnHeaderNote: 'Quota details from cursor.com are off until you allow the unofficial source.',
+            executablePlaceholder: executableName,
+            unofficialQuotas: {
+                fromSnapshot: snapshot => quotaModesFromQuotas(snapshot.quotas),
+                discover: discoverCursorQuotas,
+            },
+            changeUnofficialSource: async (enable, { settings, cancellable, applyQuotaModes }) => {
+                if (enable) {
+                    appendLog('info', 'Services: validating the Cursor unofficial usage source.', 'user');
+                    applyQuotaModes(await validateCursorUsageSource(cancellable));
+                }
+                if (cancellable.is_cancelled())
+                    return false;
+                if (!settings.set_boolean(UNOFFICIAL_SOURCE_SETTING, enable))
+                    throw new Error('The setting could not be saved.');
+                return true;
+            },
+        },
+    };
+}
 
 async function readJsonCommand(
     argv: string[],
@@ -105,13 +142,13 @@ async function fetchUsageSummary(token: string, cancellable: Gio.Cancellable): P
     }
 }
 
-export async function refreshCursor(options: {
+async function refreshCursor(options: {
     executablePath: string;
     allowUnofficial: boolean;
     cancellable: Gio.Cancellable;
     timeoutSec: number;
 }): Promise<UsageSnapshot> {
-    const executable = await resolveExecutable(options.executablePath, ['cursor-agent'], options.cancellable);
+    const executable = await resolveExecutable(options.executablePath, [executableName], options.cancellable);
     let official: UsageSnapshot;
     if (!executable) {
         official = unavailableSnapshot('cursor', 'Cursor', 'official', 'Cursor CLI was not found');
@@ -153,22 +190,17 @@ async function readCursorUsageSummary(cancellable: Gio.Cancellable): Promise<unk
     return fetchUsageSummary(token, cancellable);
 }
 
-export async function validateCursorUsageSource(cancellable: Gio.Cancellable): Promise<QuotaMode[]> {
+async function validateCursorUsageSource(cancellable: Gio.Cancellable): Promise<QuotaMode[]> {
     const quotas = quotaOptionsFromSummary(await readCursorUsageSummary(cancellable));
     if (quotas.length === 0)
         throw new Error('Cursor did not return any quota data.');
     return quotas;
 }
 
-export async function discoverCursorQuotas(options: {
-    allowUnofficial: boolean;
-    cancellable: Gio.Cancellable;
-}): Promise<QuotaMode[]> {
-    if (!options.allowUnofficial)
-        return [];
-    const token = await localAccessToken(options.cancellable);
+async function discoverCursorQuotas(cancellable: Gio.Cancellable): Promise<QuotaMode[]> {
+    const token = await localAccessToken(cancellable);
     if (!token)
         return [];
-    const summary = await fetchUsageSummary(token, options.cancellable);
+    const summary = await fetchUsageSummary(token, cancellable);
     return quotaOptionsFromSummary(summary);
 }

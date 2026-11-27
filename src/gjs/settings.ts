@@ -9,6 +9,7 @@ import { appendLog, syncMinLogLevelFromSettings } from './log.js';
 
 export const MAIN_SCHEMA = 'org.gnome.shell.extensions.genai-usage';
 export const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.genai-usage.provider';
+export const UNOFFICIAL_SOURCE_SETTING = 'allow-unofficial-sources';
 export const REFRESH_CHOICES = [1, 5, 15, 30] as const;
 
 const MAIN_PATH = '/org/gnome/shell/extensions/genai-usage/';
@@ -183,7 +184,7 @@ export class ExtensionSettings {
     }
 
     allowUnofficial(id: string): boolean {
-        return this.provider(id).get_boolean('allow-unofficial-sources');
+        return this.provider(id).get_boolean(UNOFFICIAL_SOURCE_SETTING);
     }
 
     resetAll(): void {

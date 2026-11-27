@@ -9,50 +9,30 @@ export interface QuotaMode {
 export interface ProviderCatalogEntry {
     id: string;
     displayName: string;
-    columnHeaderNote?: string;
     defaultIconUrl: string;
-    executableNames: string[];
-    staticQuotaModes?: QuotaMode[];
-    dynamicQuotas: boolean;
     showsCreditBalance?: boolean;
-    supportsUnofficial: boolean;
 }
 
-export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
-    {
-        id: 'chatgpt',
-        displayName: 'ChatGPT',
-        columnHeaderNote: 'Uses the official Codex app-server and the existing Codex login.',
-        defaultIconUrl: googleFaviconUrl('https://chatgpt.com'),
-        executableNames: ['codex'],
-        staticQuotaModes: [
-            { id: 'five-hour', label: 'Five-hour quota' },
-            { id: 'weekly', label: 'Weekly quota' },
-            { id: 'lowest', label: 'Lowest remaining quota' },
-        ],
-        dynamicQuotas: false,
-        supportsUnofficial: false,
-    },
-    {
-        id: 'cursor',
-        displayName: 'Cursor',
-        columnHeaderNote: 'Quota details from cursor.com are off until you allow the unofficial source.',
-        defaultIconUrl: googleFaviconUrl('https://cursor.com'),
-        executableNames: ['cursor-agent'],
-        dynamicQuotas: true,
-        supportsUnofficial: true,
-    },
-    {
-        id: 'jev',
-        displayName: 'Jev',
-        columnHeaderNote: 'Uses a TypeSafe console session to read available credits.',
-        defaultIconUrl: googleFaviconUrl('https://console.typesafe.ai'),
-        executableNames: [],
-        dynamicQuotas: false,
-        showsCreditBalance: true,
-        supportsUnofficial: true,
-    },
-];
+export const chatGptEntry: ProviderCatalogEntry = {
+    id: 'chatgpt',
+    displayName: 'ChatGPT',
+    defaultIconUrl: googleFaviconUrl('https://chatgpt.com'),
+};
+
+export const cursorEntry: ProviderCatalogEntry = {
+    id: 'cursor',
+    displayName: 'Cursor',
+    defaultIconUrl: googleFaviconUrl('https://cursor.com'),
+};
+
+export const jevEntry: ProviderCatalogEntry = {
+    id: 'jev',
+    displayName: 'Jev',
+    defaultIconUrl: googleFaviconUrl('https://console.typesafe.ai'),
+    showsCreditBalance: true,
+};
+
+export const PROVIDER_CATALOG = [chatGptEntry, cursorEntry, jevEntry];
 
 export const KNOWN_PROVIDER_IDS = PROVIDER_CATALOG.map(entry => entry.id);
 

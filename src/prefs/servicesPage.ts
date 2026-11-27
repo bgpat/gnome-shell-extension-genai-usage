@@ -2,23 +2,22 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
-import { appendLog } from '../gjs/log.js';
-import { discoverCursorQuotas, validateCursorUsageSource } from '../gjs/providers/cursor.js';
-import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
+import type { Provider } from '../gjs/providers/provider.js';
+import { PROVIDERS } from '../gjs/providers/registry.js';
 import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
+import type { QuotaMode } from '../lib/providers/catalog.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
-import { changeJevUsageSource } from './providers/jev.js';
-import { createUnofficialSourceSwitch, UNOFFICIAL_SOURCE_SETTING, type ChangeUsageSource } from './unofficialSource.js';
+import { promptForValidatedSecret } from './secretValidationDialog.js';
+import { createUnofficialSourceSwitch } from './unofficialSource.js';
 
 interface ProviderColumn {
-    entry: ProviderCatalogEntry;
+    provider: Provider;
     reload: () => void;
     cell: {
         enabled: Gtk.Switch;
-        executable: Gtk.Entry;
+        executable: Gtk.Entry | null;
         quota: Gtk.DropDown;
         showPlan: Gtk.Switch;
         showBilling: Gtk.Switch;
@@ -30,10 +29,9 @@ interface ProviderColumn {
 export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void; destroy: () => void } {
     const page = newServicesTab();
     const cancellable = new Gio.Cancellable();
-    const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
+    const columns = PROVIDERS.map(provider => buildProviderColumn(provider, settings, cancellable));
     const group = new Adw.PreferencesGroup({
-        description:
-            'Rows are settings; columns are providers. Cursor quota details from cursor.com need the unofficial source.',
+        description: 'Rows are settings; columns are providers.',
     });
     // Keep the matrix reachable without imposing its minimum width on every tab.
     group.add(new Gtk.ScrolledWindow({
@@ -46,7 +44,7 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
     page.add(group);
     const unsubscribe = subscribeShellSnapshots(() => {
         for (const column of columns) {
-            if (column.entry.dynamicQuotas)
+            if (column.provider.preferences.unofficialQuotas)
                 column.reload();
         }
     });
@@ -67,48 +65,47 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
 }
 
 function buildProviderColumn(
-    entry: ProviderCatalogEntry,
+    provider: Provider,
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): ProviderColumn {
-    const provider = settings.provider(entry.id);
-    const modes: QuotaMode[] = [...(entry.staticQuotaModes ?? [])];
+    const { entry, preferences } = provider;
+    const providerSettings = settings.provider(entry.id);
+    const initialModes = preferences.quotaModes ?? [];
+    let modes = initialModes;
     let updatingQuota = false;
 
     const enabled = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('enabled', enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('enabled', enabled, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-    const executable = new Gtk.Entry({
-        hexpand: true,
-        placeholder_text: entry.executableNames[0] ?? 'Executable path',
-    });
-    if (entry.executableNames.length > 0)
-        provider.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
+    const executable = preferences.executablePlaceholder
+        ? new Gtk.Entry({ hexpand: true, placeholder_text: preferences.executablePlaceholder })
+        : null;
+    if (executable)
+        providerSettings.bind('executable-path', executable, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    let quotaModel = new Gtk.StringList();
-    const quota = Gtk.DropDown.new(quotaModel, null);
+    const quota = Gtk.DropDown.new(new Gtk.StringList(), null);
     quota.hexpand = true;
     quota.halign = Gtk.Align.FILL;
 
-    const applyModes = (next: QuotaMode[]) => {
+    const applyModes = (next: readonly QuotaMode[]) => {
         updatingQuota = true;
-        modes.splice(0, modes.length, ...next);
+        modes = next;
         const model = new Gtk.StringList();
         if (modes.length === 0)
-            model.append(entry.showsCreditBalance ? 'Available credits' : 'No quota reported');
+            model.append(preferences.emptyQuotaLabel ?? 'No quota reported');
         else {
             for (const mode of modes)
                 model.append(mode.label);
         }
         quota.model = model;
-        quotaModel = model;
         quota.sensitive = modes.length > 0;
         const current = settings.topBarQuota(entry.id);
         const index = modes.findIndex(mode => mode.id === current);
         quota.selected = index >= 0 ? index : 0;
         updatingQuota = false;
     };
-    applyModes(modes);
+    applyModes(initialModes);
     quota.connect('notify::selected', () => {
         if (updatingQuota)
             return;
@@ -120,8 +117,9 @@ function buildProviderColumn(
     });
 
     let discoveringQuotas = false;
+    const unofficialQuotas = preferences.unofficialQuotas;
     const syncDynamicQuotaModes = () => {
-        if (!entry.dynamicQuotas)
+        if (!unofficialQuotas)
             return;
         if (!settings.allowUnofficial(entry.id)) {
             applyModes([]);
@@ -130,7 +128,7 @@ function buildProviderColumn(
         if (shellSnapshotsAvailable()) {
             const snapshot = snapshotsFromShell().get(entry.id);
             if (snapshot) {
-                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
+                const fromSnapshot = unofficialQuotas.fromSnapshot(snapshot);
                 if (fromSnapshot.length > 0)
                     applyModes(fromSnapshot);
             }
@@ -139,10 +137,7 @@ function buildProviderColumn(
         if (discoveringQuotas)
             return;
         discoveringQuotas = true;
-        void discoverCursorQuotas({
-            allowUnofficial: true,
-            cancellable,
-        }).then(found => {
+        void unofficialQuotas.discover(cancellable).then(found => {
             if (!cancellable.is_cancelled() && settings.allowUnofficial(entry.id))
                 applyModes(found);
         }).catch(() => {
@@ -152,10 +147,10 @@ function buildProviderColumn(
     };
 
     const showPlan = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('show-plan', showPlan, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('show-plan', showPlan, 'active', Gio.SettingsBindFlags.DEFAULT);
 
     const showBilling = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-    provider.bind('show-billing', showBilling, 'active', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('show-billing', showBilling, 'active', Gio.SettingsBindFlags.DEFAULT);
 
     const iconUrl = new Gtk.Entry({
         hexpand: true,
@@ -164,41 +159,34 @@ function buildProviderColumn(
     iconUrl.set_tooltip_text(
         'HTTPS image URL. Leave empty to use the default provider icon.',
     );
-    provider.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
+    providerSettings.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    const usageSourceChanges: Partial<Record<string, ChangeUsageSource>> = {
-        cursor: async (enable: boolean) => {
-            if (enable) {
-                appendLog('info', 'Services: validating the Cursor unofficial usage source.', 'user');
-                applyModes(await validateCursorUsageSource(cancellable));
-            }
-            if (cancellable.is_cancelled())
-                return false;
-            if (!provider.set_boolean(UNOFFICIAL_SOURCE_SETTING, enable))
-                throw new Error('The setting could not be saved.');
-            return true;
-        },
-        jev: (enable: boolean, parent: Gtk.Window) => changeJevUsageSource(enable, parent, provider, cancellable),
-    };
-    const changeUsageSource = usageSourceChanges[entry.id];
-    const unofficial = entry.supportsUnofficial && changeUsageSource
-        ? createUnofficialSourceSwitch(entry, provider, changeUsageSource, cancellable)
-        : null;
+    const changeUsageSource = preferences.changeUnofficialSource;
+    const unofficial = changeUsageSource ? createUnofficialSourceSwitch(
+        entry,
+        providerSettings,
+        (enable, parent) => changeUsageSource(enable, {
+            settings: providerSettings,
+            cancellable,
+            promptForSecret: prompt => promptForValidatedSecret(parent, cancellable, prompt),
+            applyQuotaModes: applyModes,
+        }),
+        cancellable,
+    ) : null;
 
-    if (entry.dynamicQuotas)
+    if (unofficialQuotas)
         syncDynamicQuotaModes();
 
     const reload = () => {
         unofficial?.reload();
-        if (!entry.dynamicQuotas) {
-            applyModes([...(catalogEntry(entry.id)?.staticQuotaModes ?? [])]);
-            return;
-        }
-        syncDynamicQuotaModes();
+        if (unofficialQuotas)
+            syncDynamicQuotaModes();
+        else
+            applyModes(initialModes);
     };
 
     return {
-        entry,
+        provider,
         reload,
         cell: {
             enabled,
@@ -230,7 +218,7 @@ function buildServicesMatrix(
     grid.attach(matrixCornerLabel(), 0, 0, 1, 1);
     for (let columnIndex = 0; columnIndex < columns.length; columnIndex++)
         grid.attach(
-            buildColumnHeader(columns[columnIndex]!.entry, settings, cancellable),
+            buildColumnHeader(columns[columnIndex]!.provider, settings, cancellable),
             columnIndex + 1,
             0,
             1,
@@ -249,11 +237,11 @@ function buildServicesMatrix(
         },
         {
             label: 'Executable',
-            cell: column => column.entry.executableNames.length > 0 ? column.cell.executable : matrixNaCell(),
+            cell: column => column.cell.executable ?? matrixNaCell(),
         },
         {
             label: 'Top bar quota',
-            tooltip: 'Cursor choices fill in after you allow the unofficial source and Shell refreshes.',
+            tooltip: 'Web quota choices appear after you allow the unofficial source and Shell refreshes.',
             cell: column => column.cell.quota,
         },
         {
@@ -270,7 +258,7 @@ function buildServicesMatrix(
         },
         {
             label: 'Allow unofficial usage source',
-            tooltip: 'Allows Cursor and Jev to read usage from their web consoles.',
+            tooltip: 'Allows a provider to read usage from its web console.',
             cell: column => column.cell.unofficial
                 ? centerSwitch(column.cell.unofficial)
                 : matrixNaCell(),
@@ -320,7 +308,7 @@ function centerSwitch(sw: Gtk.Switch): Gtk.Widget {
 }
 
 function buildColumnHeader(
-    entry: ProviderCatalogEntry,
+    { entry, preferences }: Provider,
     settings: ExtensionSettings,
     cancellable: Gio.Cancellable,
 ): Gtk.Widget {
@@ -341,7 +329,7 @@ function buildColumnHeader(
     titleRow.append(title);
     box.append(titleRow);
 
-    const note = entry.columnHeaderNote;
+    const note = preferences.columnHeaderNote;
     if (note) {
         const subtitle = new Gtk.Label({
             label: note,

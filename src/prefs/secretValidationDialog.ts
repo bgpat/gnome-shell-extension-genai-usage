@@ -2,20 +2,13 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
-interface SecretValidationDialogOptions {
-    parent: Gtk.Window;
-    title: string;
-    instructions: string;
-    placeholder: string;
-    help?: Gtk.Widget;
-    cancellable: Gio.Cancellable;
-    /** Return a message to keep the dialog open, or undefined on success. */
-    validate: (value: string, cancellable: Gio.Cancellable, setStatus: (message: string) => void) => Promise<string | undefined>;
-}
+import type { SecretPrompt } from '../gjs/providers/provider.js';
 
-export function promptForValidatedSecret({
-    parent, title, instructions, placeholder, help, cancellable, validate,
-}: SecretValidationDialogOptions): Promise<boolean> {
+export function promptForValidatedSecret(
+    parent: Gtk.Window,
+    cancellable: Gio.Cancellable,
+    { title, instructions, placeholder, help, validate }: SecretPrompt,
+): Promise<boolean> {
     const dialog = Adw.MessageDialog.new(parent, title, instructions);
     dialog.modal = true;
     dialog.destroy_with_parent = true;
@@ -47,8 +40,16 @@ export function promptForValidatedSecret({
     const fields = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
     fields.append(input);
     fields.append(warning);
-    if (help)
-        fields.append(help);
+    if (help) {
+        const link = new Gtk.LinkButton({ uri: help.uri, label: help.label, halign: Gtk.Align.START });
+        if (help.onOpen) {
+            link.connect('activate-link', () => {
+                help.onOpen?.();
+                return false;
+            });
+        }
+        fields.append(link);
+    }
     fields.append(actions);
     dialog.extra_child = fields;
     dialog.set_default_widget(validateButton);
