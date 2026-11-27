@@ -4,8 +4,7 @@ import Gtk from 'gi://Gtk';
 
 import { appendLog } from '../gjs/log.js';
 import { validateCursorUsageSource } from '../gjs/providers/cursor.js';
-import { fetchJevBilling } from '../gjs/providers/jev.js';
-import { clearJevCookie, parseJevCookie, saveJevCookie } from '../gjs/providers/jevKeyring.js';
+import { activateJev, deactivateJev } from '../gjs/providers/jev.js';
 import { publicError } from '../lib/model.js';
 import type { ProviderCatalogEntry, QuotaMode } from '../lib/providers/catalog.js';
 import { promptForValidatedSecret } from './secretValidationDialog.js';
@@ -39,9 +38,14 @@ export function createUnofficialSourceSwitch(
                 if (await promptForJevCookie(parent, settings, cancellable))
                     appendLog('info', 'Services: unofficial usage source enabled for jev.', 'user');
                 return;
-            } else if (entry.id === 'jev') {
-                await clearJevCookie(cancellable);
-            } else if (enable) {
+            }
+            if (entry.id === 'jev') {
+                await deactivateJev(settings, cancellable);
+                if (!cancellable.is_cancelled())
+                    appendLog('info', 'Services: unofficial usage source disabled for jev.', 'user');
+                return;
+            }
+            if (enable) {
                 appendLog('info', 'Services: validating the Cursor unofficial usage source.', 'user');
                 onCursorQuotas(await validateCursorUsageSource(cancellable));
             }
@@ -54,9 +58,7 @@ export function createUnofficialSourceSwitch(
         } catch (error) {
             if (cancellable.is_cancelled())
                 return;
-            const reason = entry.id === 'jev'
-                ? 'Could not update the GNOME keyring. Check that it is installed and unlocked.'
-                : publicError(error instanceof Error ? error.message : 'Cursor could not be verified.');
+            const reason = publicError(error instanceof Error ? error.message : 'The usage source could not be updated.');
             appendLog('warn', `Services: ${entry.id} unofficial usage source was not changed. ${reason}`, 'user');
             const dialog = Adw.MessageDialog.new(parent, `${entry.displayName} usage source`, reason);
             dialog.modal = true;
@@ -104,55 +106,6 @@ function promptForJevCookie(
         placeholder: 'Cookie: session_id=****',
         help: setupGuide,
         cancellable,
-        validate: async (value, attempt, setStatus) => {
-            const cookie = parseJevCookie(value);
-            if (!cookie) {
-                appendLog('warn', 'Services: Jev Cookie header format was rejected.', 'user');
-                return 'Paste the full Cookie request header value on one line.';
-            }
-
-            setStatus('Checking the TypeSafe session…');
-            appendLog('info', 'Services: validating the Jev unofficial usage source.', 'user');
-            const snapshot = await fetchJevBilling(cookie, attempt);
-            if (attempt.is_cancelled())
-                return undefined;
-            if (snapshot.availability.state === 'unavailable') {
-                appendLog('warn', `Services: Jev validation failed. ${snapshot.availability.reason}`, 'user');
-                return snapshot.availability.reason;
-            }
-
-            setStatus('Saving the cookie in the GNOME keyring…');
-            return saveJevActivation(cookie, settings, attempt);
-        },
+        validate: (value, attempt, setStatus) => activateJev(value, settings, attempt, setStatus),
     });
-}
-
-async function saveJevActivation(cookie: string, settings: Gio.Settings, cancellable: Gio.Cancellable): Promise<string | undefined> {
-    try {
-        if (!await saveJevCookie(cookie, cancellable))
-            throw new Error('Could not save the cookie');
-    } catch {
-        if (cancellable.is_cancelled())
-            await discardJevCookie();
-        appendLog('warn', 'Services: could not save the Jev cookie in the keyring.', 'user');
-        return 'Could not save the cookie in the GNOME keyring. Check that it is installed and unlocked.';
-    }
-
-    try {
-        if (!cancellable.is_cancelled() && settings.set_boolean(SETTING, true))
-            return undefined;
-    } catch {
-        appendLog('warn', 'Services: could not write the Jev unofficial usage setting.', 'user');
-    }
-
-    await discardJevCookie();
-    return 'Could not enable the Jev usage source. Try again.';
-}
-
-async function discardJevCookie(): Promise<void> {
-    try {
-        await clearJevCookie(new Gio.Cancellable());
-    } catch {
-        appendLog('warn', 'Services: could not remove the Jev cookie after an incomplete activation.', 'user');
-    }
 }
