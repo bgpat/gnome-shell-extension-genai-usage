@@ -87,7 +87,19 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
     dialog.modal = true;
     dialog.destroy_with_parent = true;
     const cookie = new Gtk.PasswordEntry({ placeholder_text: 'Cookie: session_id=****' });
-    dialog.extra_child = cookie;
+    const readme = new Gtk.LinkButton({
+        uri: 'https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/9a18a680169b6f1370ce6f7b03600daff45e5290/README.md#set-up-jev',
+        label: 'README',
+        halign: Gtk.Align.START,
+    });
+    readme.connect('activate-link', () => {
+        appendLog('info', 'Services: opened the Jev setup README.', 'user');
+        return false;
+    });
+    const fields = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
+    fields.append(cookie);
+    fields.append(readme);
+    dialog.extra_child = fields;
     dialog.add_response('cancel', 'Cancel');
     dialog.add_response('validate', 'Validate');
     dialog.set_response_appearance('validate', Adw.ResponseAppearance.SUGGESTED);

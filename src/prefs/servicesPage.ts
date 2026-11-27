@@ -4,7 +4,6 @@ import Gtk from 'gi://Gtk';
 
 import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
 import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
-import { appendLog } from '../gjs/log.js';
 import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
 import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
@@ -323,18 +322,11 @@ function buildColumnHeader(
     if (note) {
         const subtitle = new Gtk.Label({
             label: note,
-            use_markup: entry.id === 'jev',
             wrap: true,
             xalign: 0.5,
             justify: Gtk.Justification.CENTER,
             max_width_chars: 28,
         });
-        if (entry.id === 'jev') {
-            subtitle.connect('activate-link', () => {
-                appendLog('info', 'Services: opened the Jev setup README.', 'user');
-                return false;
-            });
-        }
         subtitle.add_css_class('dim-label');
         subtitle.add_css_class('genai-services-matrix-header-note');
         box.append(subtitle);
@@ -343,10 +335,8 @@ function buildColumnHeader(
 }
 
 function columnHeaderNote(entry: ProviderCatalogEntry): string | undefined {
-    if (entry.id === 'jev') {
-        return 'Uses a TypeSafe console session to read available credits. '
-            + '<a href="https://github.com/bgpat/gnome-shell-extension-genai-usage/blob/9a18a680169b6f1370ce6f7b03600daff45e5290/README.md#set-up-jev">README</a>';
-    }
+    if (entry.id === 'jev')
+        return 'Uses a TypeSafe console session to read available credits.';
     if (entry.supportsUnofficial)
         return 'Quota details from cursor.com are off until you allow the unofficial source.';
     if (entry.id === 'chatgpt')
