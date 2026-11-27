@@ -118,6 +118,7 @@ function promptForJevCookie(parent: Gtk.Window, cancellable: Gio.Cancellable): P
             const value = parseJevCookie(cookie.text);
             if (!value) {
                 dialog.body = 'Paste the full Cookie request header value on one line.';
+                appendLog('warn', 'Services: Jev Cookie header format was rejected.', 'user');
                 return;
             }
             running = true;
