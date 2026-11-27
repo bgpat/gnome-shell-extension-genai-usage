@@ -32,6 +32,14 @@ for (const name of ['cursor', 'Cursor']) {
         symlinkSync(source, link);
 }
 
+const jevCookie = join(realConfig, 'genai-usage', 'jev-cookie');
+const jevCookieLink = join(config, 'genai-usage', 'jev-cookie');
+if (existsSync(jevCookie) && !existsSync(jevCookieLink)) {
+    mkdirSync(join(config, 'genai-usage'), { recursive: true });
+    rmSync(jevCookieLink, { force: true });
+    symlinkSync(jevCookie, jevCookieLink);
+}
+
 const unzipped = spawnSync('unzip', ['-q', '-o', join(root, `${uuid}.zip`), '-d', dest], {
     stdio: 'inherit',
 });

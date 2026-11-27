@@ -62,6 +62,9 @@ case "\${GENAI_COLOR_SCHEME:-}" in
     exit 1
     ;;
 esac
+if gnome-shell --help | grep -q -- --devkit; then
+  exec gnome-shell --devkit --wayland
+fi
 exec gnome-shell --nested --wayland
 `);
 chmodSync(session, 0o755);
