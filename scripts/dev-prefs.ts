@@ -38,6 +38,13 @@ const unzipped = spawnSync('unzip', ['-q', '-o', join(root, `${uuid}.zip`), '-d'
 if (unzipped.status !== 0)
     process.exit(unzipped.status ?? 1);
 
+// Direct ZIP extraction bypasses gnome-extensions install, which compiles schemas.
+const compiled = spawnSync('glib-compile-schemas', ['--strict', join(dest, 'schemas')], {
+    stdio: 'inherit',
+});
+if (compiled.status !== 0)
+    process.exit(compiled.status ?? 1);
+
 chmodSync(entry, 0o755);
 
 if (!existsSync(shellTypelib)) {
