@@ -59,7 +59,8 @@ export function cacheFileName(providerId: string, url: string, defaultUrl = ''):
     for (let i = 0; i < url.length; i++)
         hash = ((hash << 5) + hash + url.charCodeAt(i)) >>> 0;
     const extension = iconUrlFileExtension(url, defaultUrl) || '.bin';
-    return `${providerId}-${hash.toString(16)}${extension}`;
+    const variant = providerId === 'jev' && extension === '.svg' ? '-symbolic' : '';
+    return `${providerId}-${hash.toString(16)}${variant}${extension}`;
 }
 
 const IMAGE_TYPES = new Set([
