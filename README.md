@@ -11,7 +11,7 @@ UUID: `genai-usage@bgpat.github.io`
 | ChatGPT | Official `codex app-server` (`account/read`, `account/rateLimits/read`) | Yes, when Codex returns `planType` | Five-hour and weekly windows when `windowDurationMins` is 300 or 10080. Other windows use a generic label. | `resetsAt` | `credits.balance` when present | Not provided by these methods |
 | Cursor | Official `cursor-agent status` and `about` | `subscriptionTier` when the CLI returns it | Not available | Not available | Not available | Not available |
 | Cursor, optional | Unofficial `GET https://cursor.com/api/usage-summary` | `membershipType` | Plan, Auto, and API percentages when those fields are present | Billing cycle end | Not provided by this response | On-demand amounts when `individualUsage.onDemand` is present |
-| Jev (TypeSafe), optional | TypeSafe console billing overview (unofficial) | — | Share of unexpired credits when the grants account for the balance | — | Available credits in USD | Spend, credit grants, billing details and history when reported |
+| [Jev (TypeSafe), optional](docs/jev.md) | TypeSafe console billing overview (unofficial) | — | Share of unexpired credits when the grants account for the balance | — | Available credits in USD | Spend, credit grants, billing details and history when reported |
 
 Missing values stay missing. They are not shown as zero.
 
@@ -28,17 +28,6 @@ Provider icons are downloaded over HTTPS when **Download provider icons** is on 
 - `glib-compile-schemas` and `zip` to build a package
 
 `codex app-server` is documented as experimental.
-
-## Set up Jev
-
-1. Sign in to the [TypeSafe console](https://console.typesafe.ai/billing) and select your organization.
-2. Open your browser’s Network panel and reload Billing. Find the `/api/billing/overview` request and copy the value of its request `Cookie` header.
-3. In **Services**, turn on **Allow unofficial usage source** for Jev. Paste the Cookie value into the dialog and choose **Validate**. The switch turns on after validation and GNOME Keyring saves the cookie (`gir1.2-secret-1` and `gnome-keyring` on Ubuntu). Turning it off removes the cookie from the keyring.
-4. Jev is shown in the top bar by default. Use **Show in top bar** to change its visibility.
-
-If you used an earlier build with a `genai-usage/jev-cookie` file under your config directory, save the value in the keyring first. Once the balance appears, you can delete the old file. A nested Shell started with `bun run dev` uses a separate session bus and keyring. Open **Preferences** inside that Shell to configure it there. The test cookie is kept only for the lifetime of that nested session.
-
-Jev shows the percentage of unexpired credits remaining or used in the top bar, dropdown menu, and General preview. The menu also shows the **Available credits** balance in USD. **Show billing** controls spending, purchased and free credits, payment and recharge status, billing contact details, and the credit and payment history returned by the overview. The percentage is available when the credit grants account for the full balance. The extension sends the session cookie only to the TypeSafe billing overview endpoint. The Jev inference API key cannot read this balance.
 
 ## Install from a package
 
