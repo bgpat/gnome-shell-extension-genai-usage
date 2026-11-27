@@ -45,6 +45,9 @@ const session = join(work, 'session.sh');
 writeFileSync(session, `#!/bin/sh
 set -eu
 export MUTTER_DEBUG_DUMMY_MODE_SPECS=\${MUTTER_DEBUG_DUMMY_MODE_SPECS:-1920x1080}
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+  gnome-keyring-daemon --foreground --components=secrets --control-directory "$GNOME_KEYRING_CONTROL" &
+fi
 gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell enabled-extensions "['${uuid}']"
 case "\${GENAI_COLOR_SCHEME:-}" in
@@ -73,6 +76,7 @@ const nested = spawnSync('dbus-run-session', ['--', session], {
         XDG_DATA_HOME: data,
         XDG_CONFIG_HOME: config,
         GNOME_KEYRING_CONTROL: keyring,
+        GENAI_USAGE_DEV_SESSION_KEYRING: '1',
     },
 });
 process.exit(nested.status ?? 1);

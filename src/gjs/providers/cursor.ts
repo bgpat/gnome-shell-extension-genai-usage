@@ -86,6 +86,7 @@ async function fetchUsageSummary(token: string, cancellable: Gio.Cancellable): P
         throw new Error('Cursor session is missing or expires too soon');
     const response = await httpGet({
         url: 'https://cursor.com/api/usage-summary',
+        noRedirect: true,
         headers: {
             Accept: 'application/json',
             Cookie: cookieHeader(session),
@@ -131,10 +132,7 @@ export async function refreshCursor(options: {
         return official;
 
     try {
-        const token = await localAccessToken(options.cancellable);
-        if (!token)
-            return mergeCursorFailure(official, 'No Cursor session was found in the app database or CLI auth file.');
-        const summary = await fetchUsageSummary(token, options.cancellable);
+        const summary = await readCursorUsageSummary(options.cancellable);
         const unofficial = snapshotFromUsageSummary(summary, Date.now(), official.plan);
         if (official.availability.state === 'unavailable' && unofficial.availability.state === 'available')
             return unofficial;
@@ -146,6 +144,20 @@ export async function refreshCursor(options: {
         const message = error instanceof Error ? error.message : String(error);
         return mergeCursorFailure(official, publicError(message));
     }
+}
+
+async function readCursorUsageSummary(cancellable: Gio.Cancellable): Promise<unknown> {
+    const token = await localAccessToken(cancellable);
+    if (!token)
+        throw new Error('No Cursor session was found. Sign in to the Cursor app or CLI.');
+    return fetchUsageSummary(token, cancellable);
+}
+
+export async function validateCursorUsageSource(cancellable: Gio.Cancellable): Promise<QuotaMode[]> {
+    const quotas = quotaOptionsFromSummary(await readCursorUsageSummary(cancellable));
+    if (quotas.length === 0)
+        throw new Error('Cursor did not return any quota data.');
+    return quotas;
 }
 
 export async function discoverCursorQuotas(options: {

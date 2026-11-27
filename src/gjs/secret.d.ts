@@ -12,6 +12,7 @@ declare module 'gi://Secret?version=1' {
         SchemaFlags: { NONE: number };
         SchemaAttributeType: { STRING: number };
         COLLECTION_DEFAULT: string;
+        COLLECTION_SESSION: string;
         password_lookup(schema: Schema, attributes: Attributes, cancellable: Gio.Cancellable, callback: Callback): void;
         password_lookup_finish(result: Gio.AsyncResult): string | null;
         password_store(schema: Schema, attributes: Attributes, collection: string, label: string, password: string,

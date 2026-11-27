@@ -1,4 +1,5 @@
 import type Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
 const attributes = { provider: 'jev' };
 
@@ -29,9 +30,12 @@ export async function lookupJevCookie(cancellable: Gio.Cancellable): Promise<str
 
 export async function saveJevCookie(cookie: string, cancellable: Gio.Cancellable): Promise<boolean> {
     const { Secret, schema } = await keyring();
+    const collection = GLib.getenv('GENAI_USAGE_DEV_SESSION_KEYRING') === '1'
+        ? Secret.COLLECTION_SESSION
+        : Secret.COLLECTION_DEFAULT;
     return new Promise((resolve, reject) => {
         Secret.password_store(
-            schema, attributes, Secret.COLLECTION_DEFAULT, 'GenAI Usage — Jev session', cookie, cancellable,
+            schema, attributes, collection, 'GenAI Usage — Jev session', cookie, cancellable,
             (_source, result) => finish(result, value => Secret.password_store_finish(value), resolve, reject),
         );
     });

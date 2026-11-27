@@ -3,15 +3,14 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
-import { clearJevCookie, parseJevCookie, saveJevCookie } from '../gjs/providers/jevKeyring.js';
 import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
-import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
 import { appendLog } from '../gjs/log.js';
-import { refreshProvider } from '../gjs/providers/registry.js';
-import { requestShellRefresh, shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
+import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
+import { shellSnapshotsAvailable, snapshotsFromShell, subscribeShellSnapshots } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
+import { createUnofficialSourceSwitch } from './unofficialSource.js';
 
 interface ProviderColumn {
     entry: ProviderCatalogEntry;
@@ -27,7 +26,7 @@ interface ProviderColumn {
     };
 }
 
-export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void } {
+export function createServicesPage(settings: ExtensionSettings): { page: Adw.PreferencesPage; reload: () => void; destroy: () => void } {
     const page = newServicesTab();
     const cancellable = new Gio.Cancellable();
     const columns = PROVIDER_CATALOG.map(entry => buildProviderColumn(entry, settings, cancellable));
@@ -38,10 +37,19 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
     group.add(buildServicesMatrix(columns, settings, cancellable));
     group.margin_bottom = 24;
     page.add(group);
-    page.add(buildJevAuthentication(cancellable));
+    const unsubscribe = subscribeShellSnapshots(() => {
+        for (const column of columns) {
+            if (column.entry.dynamicQuotas)
+                column.reload();
+        }
+    });
 
     return {
         page,
+        destroy: () => {
+            unsubscribe();
+            cancellable.cancel();
+        },
         reload: () => {
             if (cancellable.is_cancelled())
                 return;
@@ -49,56 +57,6 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
                 column.reload();
         },
     };
-}
-
-function buildJevAuthentication(cancellable: Gio.Cancellable): Adw.PreferencesGroup {
-    const group = new Adw.PreferencesGroup({
-        title: 'Jev authentication',
-        description: 'Save the TypeSafe console Cookie request header in your GNOME keyring.',
-    });
-    const row = new Adw.ActionRow({ title: 'Session cookie' });
-    const cookie = new Gtk.PasswordEntry({
-        hexpand: true,
-        valign: Gtk.Align.CENTER,
-        accessible_role: Gtk.AccessibleRole.TEXT_BOX,
-        placeholder_text: 'Cookie request header',
-    });
-    const save = new Gtk.Button({ label: 'Save', valign: Gtk.Align.CENTER });
-    const clear = new Gtk.Button({ label: 'Forget', valign: Gtk.Align.CENTER });
-    row.add_suffix(cookie);
-    row.add_suffix(save);
-    row.add_suffix(clear);
-    group.add(row);
-
-    const update = async (action: 'save' | 'clear') => {
-        const value = action === 'save' ? parseJevCookie(cookie.text) : undefined;
-        if (action === 'save' && value === undefined) {
-            row.subtitle = 'Paste the full Cookie request header value on one line.';
-            return;
-        }
-        save.sensitive = clear.sensitive = false;
-        try {
-            if (value !== undefined) {
-                if (!await saveJevCookie(value, cancellable))
-                    throw new Error('Keyring did not save the cookie');
-                row.subtitle = 'Cookie saved in the keyring.';
-            } else {
-                await clearJevCookie(cancellable);
-                row.subtitle = 'Cookie removed from the keyring.';
-            }
-            cookie.text = '';
-            appendLog('info', `Services: Jev cookie ${action === 'save' ? 'saved' : 'removed'} in the keyring.`, 'user');
-            requestShellRefresh();
-        } catch {
-            row.subtitle = 'Could not update the GNOME keyring. Check that it is installed and unlocked.';
-            appendLog('warn', 'Services: Jev keyring update failed.', 'user');
-        } finally {
-            save.sensitive = clear.sensitive = true;
-        }
-    };
-    save.connect('clicked', () => { void update('save'); });
-    clear.connect('clicked', () => { void update('clear'); });
-    return group;
 }
 
 function buildProviderColumn(
@@ -154,6 +112,7 @@ function buildProviderColumn(
             settings.setTopBarQuota(entry.id, mode.id);
     });
 
+    let discoveringQuotas = false;
     const syncDynamicQuotaModes = () => {
         if (!entry.dynamicQuotas)
             return;
@@ -165,23 +124,24 @@ function buildProviderColumn(
             const snapshot = snapshotsFromShell().get(entry.id);
             if (snapshot) {
                 const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
-                if (fromSnapshot.length > 0) {
+                if (fromSnapshot.length > 0)
                     applyModes(fromSnapshot);
-                    return;
-                }
             }
+            return;
         }
+        if (discoveringQuotas)
+            return;
+        discoveringQuotas = true;
         void discoverCursorQuotas({
             allowUnofficial: true,
             cancellable,
         }).then(found => {
-            if (cancellable.is_cancelled())
-                return;
-            applyModes(found);
+            if (!cancellable.is_cancelled() && settings.allowUnofficial(entry.id))
+                applyModes(found);
         }).catch(() => {
             if (!cancellable.is_cancelled())
                 applyModes([]);
-        });
+        }).finally(() => { discoveringQuotas = false; });
     };
 
     const showPlan = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
@@ -199,32 +159,15 @@ function buildProviderColumn(
     );
     provider.bind('icon-url', iconUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
 
-    let unofficial: Gtk.Switch | null = null;
-    if (entry.supportsUnofficial) {
-        unofficial = new Gtk.Switch({ halign: Gtk.Align.CENTER, valign: Gtk.Align.CENTER });
-        provider.bind('allow-unofficial-sources', unofficial, 'active', Gio.SettingsBindFlags.DEFAULT);
-        unofficial.connect('notify::active', () => {
-            if (unofficial!.active)
-                appendLog('info', `Services: unofficial usage source enabled for ${entry.id}.`, 'user');
-            syncDynamicQuotaModes();
-            if (!entry.dynamicQuotas || !unofficial!.active)
-                return;
-            void refreshProvider(entry.id, settings, cancellable).then(snapshot => {
-                if (cancellable.is_cancelled())
-                    return;
-                const fromSnapshot = quotaModesFromQuotas(snapshot.quotas);
-                if (fromSnapshot.length > 0)
-                    applyModes(fromSnapshot);
-            }).catch(() => {
-                appendLog('error', `Services: quota refresh failed for ${entry.id}.`, 'background');
-            });
-        });
-    }
+    const unofficial = entry.supportsUnofficial
+        ? createUnofficialSourceSwitch(entry, provider, applyModes, cancellable)
+        : null;
 
     if (entry.dynamicQuotas)
         syncDynamicQuotaModes();
 
     const reload = () => {
+        unofficial?.reload();
         if (!entry.dynamicQuotas) {
             applyModes([...(catalogEntry(entry.id)?.staticQuotaModes ?? [])]);
             return;
@@ -242,7 +185,7 @@ function buildProviderColumn(
             showPlan,
             showBilling,
             iconUrl,
-            unofficial,
+            unofficial: unofficial?.widget ?? null,
         },
     };
 }

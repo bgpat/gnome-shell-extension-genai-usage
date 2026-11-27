@@ -6,9 +6,9 @@ import { lookupJevCookie, parseJevCookie } from './jevKeyring.js';
 import { httpGet } from '../http.js';
 
 const CONSOLE = 'https://console.typesafe.ai';
+const unavailable = (reason: string) => unavailableSnapshot('jev', 'Jev', 'unofficial', reason);
 
 export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Cancellable): Promise<UsageSnapshot> {
-    const unavailable = (reason: string) => unavailableSnapshot('jev', 'Jev', 'unofficial', reason);
     if (!allowUnofficial)
         return unavailable('Enable the unofficial usage source for Jev in Services');
 
@@ -19,12 +19,16 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
         return unavailable('Could not access the GNOME keyring. Check that it is installed and unlocked');
     }
     if (rawCookie === null)
-        return unavailable('Save a TypeSafe console cookie in Services');
+        return unavailable('Turn the Jev unofficial source off and back on in Services to enter a TypeSafe cookie');
 
     const cookie = parseJevCookie(rawCookie);
     if (!cookie)
         return unavailable('Save the full TypeSafe Cookie request header value in Services');
 
+    return fetchJevBilling(cookie, cancellable);
+}
+
+export async function fetchJevBilling(cookie: string, cancellable: Gio.Cancellable): Promise<UsageSnapshot> {
     try {
         const response = await httpGet({
             url: `${CONSOLE}/api/billing/overview`,
@@ -44,7 +48,7 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
         });
         if (response.status === 401 || (response.status >= 300 && response.status < 400)
             || (response.status === 200 && response.contentType === 'text/html'))
-            return unavailable('Sign in to the TypeSafe console again and save the new cookie in Services');
+            return unavailable('Sign in to the TypeSafe console again and turn the Jev unofficial source off and back on in Services');
         if (response.status !== 200)
             return unavailable(`TypeSafe billing request failed (HTTP ${response.status})`);
 
