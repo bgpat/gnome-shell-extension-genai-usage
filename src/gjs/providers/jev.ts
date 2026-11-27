@@ -1,9 +1,8 @@
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 
 import { unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
 import { normalizeJevBilling } from '../../lib/providers/jev/normalize.js';
-import { configHome, readFileText } from '../files.js';
+import { lookupJevCookie, parseJevCookie } from './jevKeyring.js';
 import { httpGet } from '../http.js';
 
 const CONSOLE = 'https://console.typesafe.ai';
@@ -13,15 +12,18 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
     if (!allowUnofficial)
         return unavailable('Enable the unofficial usage source for Jev in Services');
 
-    const path = GLib.build_filenamev([configHome(), 'genai-usage', 'jev-cookie']);
-    const file = Gio.File.new_for_path(path);
-    const rawCookie = await readFileText(file, cancellable);
-    if (rawCookie === undefined)
-        return unavailable('TypeSafe console cookie file is missing or unreadable. See the README for setup');
+    let rawCookie: string | null;
+    try {
+        rawCookie = await lookupJevCookie(cancellable);
+    } catch {
+        return unavailable('Could not access the GNOME keyring. Check that it is installed and unlocked');
+    }
+    if (rawCookie === null)
+        return unavailable('Save a TypeSafe console cookie in Services');
 
-    const cookie = rawCookie.trim().replace(/^Cookie:[ \t]*/i, '');
-    if (!cookie.includes('=') || /[^\x20-\x7e]/.test(cookie))
-        return unavailable('TypeSafe cookie file must contain the full Cookie request header value on one line');
+    const cookie = parseJevCookie(rawCookie);
+    if (!cookie)
+        return unavailable('Save the full TypeSafe Cookie request header value in Services');
 
     try {
         const response = await httpGet({
@@ -42,7 +44,7 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
         });
         if (response.status === 401 || (response.status >= 300 && response.status < 400)
             || (response.status === 200 && response.contentType === 'text/html'))
-            return unavailable('Sign in to the TypeSafe console again and update the cookie file');
+            return unavailable('Sign in to the TypeSafe console again and save the new cookie in Services');
         if (response.status !== 200)
             return unavailable(`TypeSafe billing request failed (HTTP ${response.status})`);
 

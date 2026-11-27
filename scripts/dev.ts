@@ -13,9 +13,11 @@ if (packed.status !== 0)
 const work = mkdtempSync(join(tmpdir(), 'genai-usage-nested-'));
 const data = join(work, 'data');
 const config = join(work, 'config');
+const keyring = join(work, 'keyring');
 const dest = join(data, 'gnome-shell', 'extensions', uuid);
 mkdirSync(dest, { recursive: true });
 mkdirSync(config, { recursive: true });
+mkdirSync(keyring, { mode: 0o700 });
 
 const realConfig = process.env.XDG_CONFIG_HOME?.startsWith('/')
     ? process.env.XDG_CONFIG_HOME
@@ -25,10 +27,6 @@ for (const name of ['cursor', 'Cursor']) {
     if (existsSync(source))
         symlinkSync(source, join(config, name));
 }
-
-const jevCookie = join(realConfig, 'genai-usage', 'jev-cookie');
-mkdirSync(join(config, 'genai-usage'));
-symlinkSync(jevCookie, join(config, 'genai-usage', 'jev-cookie'));
 
 const unzipped = spawnSync('unzip', ['-q', '-o', join(root, `${uuid}.zip`), '-d', dest], {
     stdio: 'inherit',
@@ -74,6 +72,7 @@ const nested = spawnSync('dbus-run-session', ['--', session], {
         ...process.env,
         XDG_DATA_HOME: data,
         XDG_CONFIG_HOME: config,
+        GNOME_KEYRING_CONTROL: keyring,
     },
 });
 process.exit(nested.status ?? 1);

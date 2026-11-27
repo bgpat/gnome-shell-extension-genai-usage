@@ -33,8 +33,10 @@ Provider icons are downloaded over HTTPS when **Download provider icons** is on 
 
 1. Sign in to the [TypeSafe console](https://console.typesafe.ai/billing) and select your organization.
 2. Open your browser’s Network panel and reload Billing. Find the `/api/billing/overview` request and copy the value of its request `Cookie` header.
-3. Save the value as a single line in `${XDG_CONFIG_HOME:-$HOME/.config}/genai-usage/jev-cookie`. Keep the file private (`chmod 600`) and replace its contents when your console session expires.
-4. In **Services**, turn on **Show in top bar** and **Allow unofficial usage source** for Jev. Use **Refresh** in the top-bar menu after adding or replacing the cookie.
+3. In **Services → Jev authentication**, paste the value into **Session cookie** and select **Save**. GNOME Keyring must be available and unlocked (`gir1.2-secret-1` and `gnome-keyring` on Ubuntu). **Forget** removes the saved cookie.
+4. In **Services**, turn on **Show in top bar** and **Allow unofficial usage source** for Jev. Use **Refresh** in the top-bar menu to update the display.
+
+If you used an earlier build with a `genai-usage/jev-cookie` file under your config directory, save the value in the keyring first. Once the balance appears, you can delete the old file. A nested Shell started with `bun run dev` uses a separate session bus and keyring. Save the cookie from the **Preferences** menu inside that Shell when testing there.
 
 Jev shows the percentage of unexpired credits remaining or used in the top bar, dropdown menu, and General preview. The menu also shows the **Available credits** balance in USD. The percentage is available when the credit grants account for the full balance. The extension sends the session cookie only to the TypeSafe billing overview endpoint. The Jev inference API key cannot read this balance.
 

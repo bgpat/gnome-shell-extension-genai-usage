@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -30,13 +30,6 @@ for (const name of ['cursor', 'Cursor']) {
     const link = join(config, name);
     if (existsSync(source) && !existsSync(link))
         symlinkSync(source, link);
-}
-
-const jevCookie = join(realConfig, 'genai-usage', 'jev-cookie');
-const jevCookieLink = join(config, 'genai-usage', 'jev-cookie');
-if (!lstatSync(jevCookieLink, { throwIfNoEntry: false })) {
-    mkdirSync(join(config, 'genai-usage'), { recursive: true });
-    symlinkSync(jevCookie, jevCookieLink);
 }
 
 const unzipped = spawnSync('unzip', ['-q', '-o', join(root, `${uuid}.zip`), '-d', dest], {

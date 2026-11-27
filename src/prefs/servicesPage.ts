@@ -3,11 +3,12 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 
 import { catalogEntry, PROVIDER_CATALOG, type ProviderCatalogEntry, type QuotaMode } from '../lib/providers/catalog.js';
+import { clearJevCookie, parseJevCookie, saveJevCookie } from '../gjs/providers/jevKeyring.js';
 import { discoverCursorQuotas } from '../gjs/providers/cursor.js';
 import { quotaModesFromQuotas } from '../lib/providers/cursor/normalize.js';
 import { appendLog } from '../gjs/log.js';
 import { refreshProvider } from '../gjs/providers/registry.js';
-import { shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
+import { requestShellRefresh, shellSnapshotsAvailable, snapshotsFromShell } from '../gjs/usageDBusClient.js';
 import type { ExtensionSettings } from '../gjs/settings.js';
 import { attachProviderGtkImage } from './providerIconView.js';
 import { newServicesTab } from './preferencesTab.js';
@@ -37,6 +38,7 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
     group.add(buildServicesMatrix(columns, settings, cancellable));
     group.margin_bottom = 24;
     page.add(group);
+    page.add(buildJevAuthentication(cancellable));
 
     return {
         page,
@@ -47,6 +49,56 @@ export function createServicesPage(settings: ExtensionSettings): { page: Adw.Pre
                 column.reload();
         },
     };
+}
+
+function buildJevAuthentication(cancellable: Gio.Cancellable): Adw.PreferencesGroup {
+    const group = new Adw.PreferencesGroup({
+        title: 'Jev authentication',
+        description: 'Save the TypeSafe console Cookie request header in your GNOME keyring.',
+    });
+    const row = new Adw.ActionRow({ title: 'Session cookie' });
+    const cookie = new Gtk.PasswordEntry({
+        hexpand: true,
+        valign: Gtk.Align.CENTER,
+        accessible_role: Gtk.AccessibleRole.TEXT_BOX,
+        placeholder_text: 'Cookie request header',
+    });
+    const save = new Gtk.Button({ label: 'Save', valign: Gtk.Align.CENTER });
+    const clear = new Gtk.Button({ label: 'Forget', valign: Gtk.Align.CENTER });
+    row.add_suffix(cookie);
+    row.add_suffix(save);
+    row.add_suffix(clear);
+    group.add(row);
+
+    const update = async (action: 'save' | 'clear') => {
+        const value = action === 'save' ? parseJevCookie(cookie.text) : undefined;
+        if (action === 'save' && value === undefined) {
+            row.subtitle = 'Paste the full Cookie request header value on one line.';
+            return;
+        }
+        save.sensitive = clear.sensitive = false;
+        try {
+            if (value !== undefined) {
+                if (!await saveJevCookie(value, cancellable))
+                    throw new Error('Keyring did not save the cookie');
+                row.subtitle = 'Cookie saved in the keyring.';
+            } else {
+                await clearJevCookie(cancellable);
+                row.subtitle = 'Cookie removed from the keyring.';
+            }
+            cookie.text = '';
+            appendLog('info', `Services: Jev cookie ${action === 'save' ? 'saved' : 'removed'} in the keyring.`, 'user');
+            requestShellRefresh();
+        } catch {
+            row.subtitle = 'Could not update the GNOME keyring. Check that it is installed and unlocked.';
+            appendLog('warn', 'Services: Jev keyring update failed.', 'user');
+        } finally {
+            save.sensitive = clear.sensitive = true;
+        }
+    };
+    save.connect('clicked', () => { void update('save'); });
+    clear.connect('clicked', () => { void update('clear'); });
+    return group;
 }
 
 function buildProviderColumn(
