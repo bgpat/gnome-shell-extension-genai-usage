@@ -5,6 +5,8 @@ import { unavailableSnapshot, type UsageSnapshot } from '../../lib/model.js';
 import { normalizeJevBilling } from '../../lib/providers/jev/normalize.js';
 import { httpGet } from '../http.js';
 import { appendLog } from '../log.js';
+import { runProcess } from '../subprocess.js';
+import { attributes, finish, keyring } from './jevKeyring.js';
 import { UNOFFICIAL_SOURCE_SETTING } from '../settings.js';
 import type { UsageSourceContext } from '../../lib/providers/provider.js';
 
@@ -39,7 +41,16 @@ export async function refreshJev(allowUnofficial: boolean, cancellable: Gio.Canc
 
     let rawCookie: string | null;
     try {
-        rawCookie = await lookupJevCookie(cancellable);
+        const helper = Gio.File.new_for_uri(import.meta.url).get_parent()?.get_child('jevKeyringLookup.js').get_path();
+        if (!helper)
+            throw new Error('Jev keyring helper path is unavailable');
+        const result = await runProcess({ argv: ['gjs', '-m', helper], timeoutSec: 5, cancellable });
+        if (result.exitCode !== 0 || result.timedOut)
+            throw new Error('Jev keyring helper failed');
+        const cookie: unknown = JSON.parse(result.stdout);
+        if (cookie !== null && typeof cookie !== 'string')
+            throw new Error('Invalid Jev keyring helper response');
+        rawCookie = cookie;
     } catch {
         return unavailable('Could not access the GNOME keyring. Check that it is installed and unlocked');
     }
@@ -148,33 +159,6 @@ async function discardJevCookie(): Promise<void> {
     } catch {
         appendLog('warn', 'Services: could not remove the Jev cookie after an incomplete activation.', 'user');
     }
-}
-
-const attributes = { provider: 'jev' };
-
-async function keyring() {
-    const { default: Secret } = await import('gi://Secret?version=1');
-    const schema = new Secret.Schema('io.github.bgpat.GenaiUsage.Cookie', Secret.SchemaFlags.NONE, {
-        provider: Secret.SchemaAttributeType.STRING,
-    });
-    return { Secret, schema };
-}
-
-function finish<T>(result: Gio.AsyncResult, read: (result: Gio.AsyncResult) => T, resolve: (value: T) => void, reject: (error: unknown) => void): void {
-    try {
-        resolve(read(result));
-    } catch (error) {
-        reject(error);
-    }
-}
-
-async function lookupJevCookie(cancellable: Gio.Cancellable): Promise<string | null> {
-    const { Secret, schema } = await keyring();
-    return new Promise((resolve, reject) => {
-        Secret.password_lookup(schema, attributes, cancellable, (_source, result) => {
-            finish(result, value => Secret.password_lookup_finish(value), resolve, reject);
-        });
-    });
 }
 
 async function saveJevCookie(cookie: string, cancellable: Gio.Cancellable): Promise<boolean> {
