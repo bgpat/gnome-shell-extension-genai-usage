@@ -80,7 +80,9 @@ async function localAccessToken(cancellable: Gio.Cancellable): Promise<string | 
                 });
                 if (!result.timedOut && result.exitCode === 0) {
                     const token = decodeSqliteToken(result.stdout);
-                    if (token)
+                    // Cursor may encrypt this value at rest. Don't let an
+                    // unreadable database token hide the CLI's usable auth file.
+                    if (token && sessionFromAccessToken(token, Math.floor(Date.now() / 1000)))
                         return token;
                 }
             }
