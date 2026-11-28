@@ -73,7 +73,9 @@ export function tokenFromAuthJson(text: string): string | undefined {
     }
     if (!isRecord(parsed))
         return undefined;
-    const token = parsed['accessToken'];
+    // cursor-agent stores credentials using snake_case; older Cursor app
+    // auth files may use camelCase.
+    const token = parsed['access_token'] ?? parsed['accessToken'];
     if (typeof token !== 'string')
         return undefined;
     const trimmed = token.trim();
