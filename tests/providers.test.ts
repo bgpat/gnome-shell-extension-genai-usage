@@ -81,6 +81,7 @@ describe('Cursor normalization', () => {
         expect(cookieHeader(session!)).toBe(`WorkosCursorSessionToken=user_01ABC%3A%3A${token}`);
         expect(sessionFromAccessToken(token, 1_999_999_990)).toBeUndefined();
         expect(tokenFromAuthJson(JSON.stringify({ accessToken: token }))).toBe(token);
+        expect(tokenFromAuthJson(JSON.stringify({ access_token: token, refresh_token: 'unused' }))).toBe(token);
         expect(tokenFromAuthJson('{}')).toBeUndefined();
     });
 });
