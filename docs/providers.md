@@ -39,7 +39,7 @@ There is no `cursor-agent usage` command and no documented noninteractive `/usag
 
 Turning on **Allow unofficial usage source** does three things:
 
-1. Read `cursorAuth/accessToken` from `$XDG_CONFIG_HOME/Cursor/User/globalStorage/state.vscdb` with `sqlite3 -readonly`, when that file and the `sqlite3` CLI exist.
+1. Try `cursorAuth/accessToken` from `$XDG_CONFIG_HOME/Cursor/User/globalStorage/state.vscdb` with `sqlite3 -readonly`, when that file and the `sqlite3` CLI exist. The value must be a usable JWT; encrypted or expired values are skipped.
 2. Otherwise read `access_token` (Cursor CLI) or `accessToken` from `$XDG_CONFIG_HOME/cursor/auth.json`.
 3. If the JWT expires more than 60 seconds from now, send `GET https://cursor.com/api/usage-summary` with a `WorkosCursorSessionToken` cookie built from the token.
 
